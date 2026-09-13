@@ -195,12 +195,11 @@ once without disturbing unrelated Items.
 
 ### 6.1 Product Management (Support Agent)
 - Create a product: name, description, images, source URL, price — and,
-  right on the same form, an optional first Modifier (name + options).
-  Uploaded images go straight to storage from the browser, not through
-  the server.
-- Attach more Modifiers to it — pick from existing ones, or create a new
-  Modifier (and its Options) inline — from the product's own page after
-  creation.
+  right on the same form, any number of new Modifiers (each a name + its
+  options). Uploaded images go straight to storage from the browser, not
+  through the server.
+- Attach more Modifiers to it — pick from existing ones, or create new
+  ones (same as creation) — from the product's own page after creation.
 - Edit / archive a product.
 - List/search products (by name, status).
 

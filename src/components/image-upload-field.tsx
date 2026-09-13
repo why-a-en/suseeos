@@ -14,6 +14,8 @@ type UploadedImage = {
   status: "uploading" | "done" | "error";
 };
 
+type ExistingImage = { id: string; url: string };
+
 /**
  * Uploads straight to R2 from the browser (src/lib/storage.ts) — the
  * server only ever hands out a short-lived signed URL, never touches the
@@ -22,13 +24,21 @@ type UploadedImage = {
  * as a plain multi-value field on submit, no client-side form-state
  * plumbing needed beyond this component.
  *
- * Styling note: this was the one control that never got the design-system
- * pass — it carried Tailwind's stock palette (neutral-200 borders, a red
- * error chip, white scrims) into a system that is deliberately hueless, and
- * generic text-xs/text-sm instead of the type scale. In-progress and failed
- * states now use the system's own density devices: `ds-working` sweeps light
- * across the tile that is uploading, and a failure is marked by the same
- * hatch that marks every other destructive/cancelled surface.
+ * Doubles as the edit-form widget: pass `initialImages` (the product's
+ * existing rows) and this renders them in the same grid as anything just
+ * uploaded. Removing one — new or already-saved — doesn't call the server;
+ * it drops the preview and, for an existing image, adds a hidden
+ * `removedImageIds` entry so the surrounding action can delete the row on
+ * submit. Nothing is destroyed until the form actually saves.
+ *
+ * Every tile — uploading, done, or failed — carries the same small round
+ * "×" in its corner, the one gap the previous version had: a failed upload
+ * used to sit there forever with no way to clear it short of reloading the
+ * page, and a *successful* one couldn't be reconsidered at all short of
+ * emptying the whole field. Uploading and done tiles use the shared chip
+ * treatment; the eventual choice for size and press feel here (the small
+ * circular target: `active:scale-90`) matches the icon-target rule the rest
+ * of the kit follows.
  *
  * The picker itself sits in the same field shell as Input and Textarea
  * (field-shell.ts) rather than floating as a bare button on the page: in a
@@ -38,11 +48,24 @@ type UploadedImage = {
  * labelled with no JS — but it now lives *inside* the field, tuned to
  * Button's secondary variant so it reads as a control within a control.
  */
-export function ImageUploadField({ name = "imageUrls" }: { name?: string }) {
+export function ImageUploadField({
+  name = "imageUrls",
+  removedFieldName = "removedImageIds",
+  initialImages = [],
+}: {
+  name?: string;
+  /** Hidden-input name carrying the ids of `initialImages` the agent removed. */
+  removedFieldName?: string;
+  /** Already-saved images, for the edit form — omitted entirely on create. */
+  initialImages?: ExistingImage[];
+}) {
   const [images, setImages] = useState<UploadedImage[]>([]);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
   // Adopts the id its Field generated, so the "IMAGES" label actually points
   // at this control instead of dangling.
   const controlId = useFieldControlId();
+
+  const existing = initialImages.filter((img) => !removedIds.includes(img.id));
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList) return;
@@ -67,6 +90,14 @@ export function ImageUploadField({ name = "imageUrls" }: { name?: string }) {
     }
   }
 
+  function removeNew(id: string) {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  }
+
+  function removeExisting(id: string) {
+    setRemovedIds((prev) => [...prev, id]);
+  }
+
   return (
     <div className="grid gap-2">
       <div className={cn(fieldShellWrapper, "h-(--control-h-md) rounded-sm px-3")}>
@@ -78,7 +109,13 @@ export function ImageUploadField({ name = "imageUrls" }: { name?: string }) {
           type="file"
           accept="image/*"
           multiple
-          onChange={(e) => handleFiles(e.target.files)}
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            // Lets the same file be picked again after being removed —
+            // without this, re-selecting an already-cleared file silently
+            // no-ops because the input's value hasn't changed.
+            e.target.value = "";
+          }}
           className={cn(
             fieldShellInner,
             "cursor-pointer text-small text-text-muted",
@@ -95,13 +132,25 @@ export function ImageUploadField({ name = "imageUrls" }: { name?: string }) {
         />
       </div>
 
-      {images.length > 0 && (
-        <ul className="flex list-none flex-wrap gap-2 p-0">
+      {(existing.length > 0 || images.length > 0) && (
+        <ul className="flex list-none flex-wrap gap-2.5 p-0">
+          {existing.map((img) => (
+            <li key={img.id} className="relative size-20 overflow-hidden rounded-sm border border-line-hairline bg-surface-sunken">
+              {/* Already-saved product photo, served from R2 by public URL —
+                  a remote asset, so next/image would apply, but this tiny
+                  fixed-size preview tile isn't worth the remote-pattern
+                  config for what's already an optimized upload. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img.url} alt="" className="size-full object-cover" />
+              <RemoveTile onClick={() => removeExisting(img.id)} />
+            </li>
+          ))}
+
           {images.map((img) => (
             <li
               key={img.id}
               className={cn(
-                "relative size-16 overflow-hidden rounded-sm border border-line-hairline bg-surface-sunken",
+                "relative size-20 overflow-hidden rounded-sm border border-line-hairline bg-surface-sunken",
                 img.status === "uploading" && "ds-working",
               )}
             >
@@ -123,11 +172,41 @@ export function ImageUploadField({ name = "imageUrls" }: { name?: string }) {
                 </span>
               )}
 
+              <RemoveTile onClick={() => removeNew(img.id)} label={img.status === "error" ? "Dismiss" : "Remove image"} />
+
               {img.status === "done" && <input type="hidden" name={name} value={img.publicUrl} />}
             </li>
           ))}
         </ul>
       )}
+
+      {removedIds.map((id) => (
+        <input key={id} type="hidden" name={removedFieldName} value={id} />
+      ))}
     </div>
+  );
+}
+
+/** The small round "×" pinned to a tile's corner — same target on every
+ *  status (uploading, done, failed) so removing a photo is always the same
+ *  gesture, mid-upload or after. Sized and eased like the kit's other small
+ *  circular controls (`active:scale-90`), not Button's own icon-target scale
+ *  — this one has to sit half off the tile's edge, too small for Button's
+ *  padding. */
+function RemoveTile({ onClick, label = "Remove image" }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "absolute top-1 right-1 flex size-5 items-center justify-center rounded-full",
+        "border border-line-hairline bg-surface-page text-text-strong",
+        "transition-transform duration-instant ease-standard active:scale-90",
+      )}
+    >
+      <Icon name="x" size={12} />
+    </button>
   );
 }
