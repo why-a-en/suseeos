@@ -9,8 +9,6 @@ export interface InvitationEmailProps {
   roleLabel: string;
   /** The full accept-invitation link (token already applied). */
   url: string;
-  /** Who sent it, for the "you weren't expecting this" line. Optional. */
-  inviterName?: string;
 }
 
 /**
@@ -21,7 +19,6 @@ export function InvitationEmail({
   storeName,
   roleLabel,
   url,
-  inviterName,
 }: InvitationEmailProps) {
   return (
     <EmailLayout
@@ -68,7 +65,6 @@ export function InvitationEmail({
         invitation expires in 7 days.
       </Text>
       <Text style={{ margin: "8px 0 0", fontSize: 13, lineHeight: "20px", color: brand.muted }}>
-        {inviterName ? `Sent by ${inviterName}. ` : ""}
         If you weren&rsquo;t expecting this, you can safely ignore this email.
       </Text>
     </EmailLayout>
@@ -79,7 +75,6 @@ InvitationEmail.PreviewProps = {
   storeName: "Acme Resale",
   roleLabel: "Support Agent",
   url: "https://app.suseeos.com/invite/accept?token=00000000-0000-0000-0000-000000000000",
-  inviterName: "Jordan Lee",
 } satisfies InvitationEmailProps;
 
 export default InvitationEmail;
