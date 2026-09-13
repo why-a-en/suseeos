@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, unstable_rethrow } from "next/navigation";
 import { Screen, ScrollBody, Foot, Toolbar } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { Button } from "@/components/ui/button";
@@ -577,6 +577,10 @@ export function NewOrderWizard({
       try {
         await deleteDraftAction(resume.orderId); // redirects to /orders
       } catch (e) {
+        // Same as handleSave above — deleteDraftAction's redirect() on
+        // success has to be let through, not treated as the failure it
+        // otherwise looks like.
+        unstable_rethrow(e);
         setError(e instanceof Error ? e.message : "Couldn't delete that draft.");
       }
     });
@@ -622,6 +626,12 @@ export function NewOrderWizard({
         void result;
         router.push("/orders");
       } catch (e) {
+        // saveOrderAction's redirect() is what lands here on a successful
+        // place — it signals by throwing. Without this, that throw looked
+        // like a real failure: the ErrorDialog below flashed open on a
+        // cryptic message for the instant before Next's own redirect (which
+        // fires independently of this catch) navigated it away underneath.
+        unstable_rethrow(e);
         setError(e instanceof Error ? e.message : "Couldn't save the order.");
       }
     });
