@@ -79,7 +79,6 @@ export async function createStoreAction(
       storeName,
       roleLabel: roleLabel("admin"),
       token: created.invitationId,
-      inviterName: platformUser.name,
     });
   } catch {
     return {
@@ -133,7 +132,6 @@ export async function resendStoreInvitationAction(
       storeName: resent.storeName,
       roleLabel: roleLabel(resent.role),
       token: resent.invitationId,
-      inviterName: platformUser.name,
     });
   } catch {
     return { error: "Resent, but the email failed to send." };

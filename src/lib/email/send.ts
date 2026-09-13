@@ -3,6 +3,7 @@ import { render } from "react-email";
 import { appBaseURL } from "@/lib/app-url";
 import { CredentialsEmail } from "./templates/credentials";
 import { InvitationEmail } from "./templates/invitation";
+import { LOGO_CID, LOGO_LOCKUP_LIGHT_PNG_BASE64 } from "./templates/logo";
 
 // Outbound transactional mail, via Resend (docs/adr/0006-transactional-email.md).
 // Two messages: an invitation link for someone joining a Store, and (only on
@@ -31,6 +32,16 @@ async function renderParts(node: React.ReactElement): Promise<{ html: string; te
   const [html, text] = await Promise.all([render(node), render(node, { plainText: true })]);
   return { html, text };
 }
+
+// Both templates reference the logo via `cid:${LOGO_CID}` (templates/logo.ts
+// explains why it's an inline attachment rather than a URL or a data URI) —
+// every send needs this attached, so it's built once here.
+const LOGO_ATTACHMENT = {
+  content: LOGO_LOCKUP_LIGHT_PNG_BASE64,
+  filename: "suseeos-logo.png",
+  contentType: "image/png",
+  contentId: LOGO_CID,
+};
 
 /**
  * Delivers a generated temporary password after an Admin reset it — the
@@ -66,6 +77,7 @@ export async function sendCredentialsEmail(input: {
     subject: "Your SuSeeOS password has been reset",
     text,
     html,
+    attachments: [LOGO_ATTACHMENT],
   });
 
   if (error) {
@@ -87,14 +99,12 @@ export async function sendInvitationEmail(input: {
   roleLabel: string;
   /** The invitation id; becomes `?token=` on the accept link. */
   token: string;
-  /** Who sent it, for the "you weren't expecting this" line. Optional. */
-  inviterName?: string;
 }): Promise<void> {
-  const { to, storeName, roleLabel, token, inviterName } = input;
+  const { to, storeName, roleLabel, token } = input;
   const url = `${appBaseURL()}/invite/accept?token=${encodeURIComponent(token)}`;
 
   const { html, text } = await renderParts(
-    InvitationEmail({ storeName, roleLabel, url, inviterName }),
+    InvitationEmail({ storeName, roleLabel, url }),
   );
 
   const { error } = await resend().emails.send({
@@ -103,6 +113,7 @@ export async function sendInvitationEmail(input: {
     subject: `Join ${storeName} on SuSeeOS`,
     text,
     html,
+    attachments: [LOGO_ATTACHMENT],
   });
 
   if (error) {

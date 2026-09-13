@@ -11,7 +11,7 @@ import {
 } from "react-email";
 import type { ReactNode } from "react";
 import { brand, FONT_MONO, FONT_SANS } from "./brand";
-import { LOGO_LOCKUP_LIGHT_DATA_URI } from "./logo";
+import { LOGO_CID } from "./logo";
 
 /**
  * The one wrapper every outbound email goes through: wordmark header, a
@@ -49,11 +49,13 @@ export function EmailLayout({
       >
         <Container style={{ maxWidth: 480, margin: "0 auto", width: "100%" }}>
           {/* wordmark — the real logo (public/logo/logo-lockup-light.svg),
-              inlined as a data URI. See templates/logo.ts for why it isn't
-              just <Img src={`${appBaseURL()}/logo/...`}>. */}
+              sent as an inline CID attachment (send.ts) and referenced
+              here by Content-ID. See templates/logo.ts for the full why —
+              short version: neither a fetched URL nor a data URI renders
+              across major clients; a real MIME attachment does. */}
           <Section style={{ marginBottom: 20 }}>
             <Img
-              src={LOGO_LOCKUP_LIGHT_DATA_URI}
+              src={`cid:${LOGO_CID}`}
               width={110}
               height={22}
               alt="SuSeeOS"

@@ -198,7 +198,6 @@ export const auth = betterAuth({
           storeName: data.organization.name,
           roleLabel: ROLE_LABEL[data.role] ?? data.role,
           token: data.id,
-          inviterName: data.inviter.user.name,
         });
       },
     }),

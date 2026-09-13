@@ -32,7 +32,6 @@ if (kind === "invite") {
     // Not a real invitation id — fine for eyeballing layout and delivery;
     // the link itself 404s on /invite/accept without a matching row.
     token: "00000000-0000-0000-0000-000000000000",
-    inviterName: "Test Admin",
   });
 } else {
   await sendCredentialsEmail({
