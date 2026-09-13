@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { getProductImageUploadUrlAction } from "@/app/(dashboard)/products/actions";
 import { useFieldControlId } from "@/components/ui/field";
 import { Icon } from "@/components/icon";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fieldShellWrapper, fieldShellInner } from "@/components/ui/field-shell";
+import { fieldShellWrapper } from "@/components/ui/field-shell";
 
 type UploadedImage = {
   id: string;
@@ -43,10 +44,30 @@ type ExistingImage = { id: string; url: string };
  * The picker itself sits in the same field shell as Input and Textarea
  * (field-shell.ts) rather than floating as a bare button on the page: in a
  * form where every other row is a sunken bordered box with a leading glyph,
- * an unbordered button was the one place the rhythm broke. The native
- * `file:` button stays — it keeps the control keyboard-reachable and
- * labelled with no JS — but it now lives *inside* the field, tuned to
- * Button's secondary variant so it reads as a control within a control.
+ * an unbordered button was the one place the rhythm broke.
+ *
+ * The trigger is a real `Button` (secondary, sm), not the native
+ * `::file-selector-button` styled through Tailwind's `file:` variant — that
+ * was the previous version, and it never sat right: the pseudo-element's own
+ * box model stretches to the host `<input>`'s full height regardless of an
+ * explicit `file:h-8`, so the button touched the shell's top and bottom edges
+ * with no breathing room while "No file chosen" sat baseline-aligned beside
+ * it — two controls in the same row, each centered by a different rule. A
+ * real Button is centered by the shell's own `items-center`, the same as the
+ * icon beside it, so it can't drift from the rest of the kit's buttons no
+ * matter how a given browser boxes its file-picker chrome. The actual
+ * `<input type="file">` is still here and still does the picking — just
+ * visually hidden and triggered by the Button's `onClick`, with
+ * `tabIndex={-1}`/`aria-hidden` so it's not a second, invisible stop in the
+ * tab order next to the Button that already carries the accessible name
+ * (`id={controlId}`, so the "Images" field label focuses the Button, not the
+ * hidden input — a labelled `<button>` is as labelable as an `<input>`).
+ * "No file chosen" is dropped rather than reimplemented: it only ever
+ * reflected the most recent native pick, never the cumulative set once photos
+ * can be added over several passes, so the trailing count on the right (also
+ * covering images already saved, on the edit form) is more honest than what
+ * it replaces, and the thumbnail grid below is the real confirmation either
+ * way.
  */
 export function ImageUploadField({
   name = "imageUrls",
@@ -61,11 +82,14 @@ export function ImageUploadField({
 }) {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
   // Adopts the id its Field generated, so the "IMAGES" label actually points
-  // at this control instead of dangling.
+  // at this control instead of dangling. Lives on the Button now, not the
+  // hidden <input> — see the component doc comment.
   const controlId = useFieldControlId();
 
   const existing = initialImages.filter((img) => !removedIds.includes(img.id));
+  const totalCount = existing.length + images.length;
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList) return;
@@ -104,11 +128,33 @@ export function ImageUploadField({
         <span aria-hidden="true" className="shrink-0 text-text-faint">
           <Icon name="image" size={16} />
         </span>
-        <input
+        <Button
           id={controlId}
+          type="button"
+          variant="secondary"
+          size="sm"
+          icon="plus"
+          // The Field's "Images" <label for> makes this focusable by label
+          // click, which is the point — but a native <label> association
+          // outranks a button's own text in accessible-name computation, so
+          // without this override the name assistive tech announces would be
+          // "Images" instead of what's actually printed on the button.
+          aria-label="Add photos"
+          onClick={() => inputRef.current?.click()}
+        >
+          Add photos
+        </Button>
+        <span className="ml-auto truncate font-ui text-small text-text-faint">
+          {totalCount === 0 ? "No photos yet" : `${totalCount} photo${totalCount === 1 ? "" : "s"}`}
+        </span>
+        <input
+          ref={inputRef}
           type="file"
           accept="image/*"
           multiple
+          tabIndex={-1}
+          aria-hidden="true"
+          className="hidden"
           onChange={(e) => {
             handleFiles(e.target.files);
             // Lets the same file be picked again after being removed —
@@ -116,19 +162,6 @@ export function ImageUploadField({
             // no-ops because the input's value hasn't changed.
             e.target.value = "";
           }}
-          className={cn(
-            fieldShellInner,
-            "cursor-pointer text-small text-text-muted",
-            // The native button is styled through file: rather than hidden
-            // behind a proxy control — it keeps the input keyboard-reachable
-            // and labelled with no JS. Tones and timings match Button's
-            // secondary variant, including the press, so this doesn't read as
-            // a foreign control dropped into the form.
-            "file:mr-3 file:cursor-pointer file:rounded-[5px] file:border file:border-line-strong file:bg-transparent",
-            "file:h-8 file:px-3 file:font-ui file:text-[13px] file:font-semibold file:text-text-strong",
-            "file:transition-[background,color,scale] file:duration-fast file:ease-standard",
-            "hover:file:bg-surface-invert hover:file:text-text-invert active:file:scale-95",
-          )}
         />
       </div>
 
