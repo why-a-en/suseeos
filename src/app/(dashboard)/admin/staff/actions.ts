@@ -18,6 +18,23 @@ export type StaffActionResult = { error?: string };
 /** On success, the address the credential was emailed to. */
 export type IssuedPasswordResult = StaffActionResult & { emailedTo?: string };
 
+/**
+ * Live, as-you-type check behind the Add Staff sheet's email field
+ * (useEmailCheck) — the exact same assertDeliverableEmail() sendInvite()
+ * below runs at submit, just run early so a typo or a known-bouncing
+ * address is caught before "Send invitation" is even tappable.
+ */
+export async function checkStaffEmailAction(email: string): Promise<StaffActionResult> {
+  await requireAdmin();
+  try {
+    await assertDeliverableEmail(normalizeEmail(email));
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    throw error;
+  }
+  return {};
+}
+
 type Ctx = Parameters<Parameters<typeof withCurrentOrganization>[0]>[0];
 
 /**
