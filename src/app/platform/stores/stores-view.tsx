@@ -17,8 +17,10 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Icon } from "@/components/icon";
+import { cn } from "@/lib/utils";
+import { useEmailCheck } from "@/lib/use-email-check";
 import type { StoreSummary } from "@/services/platform";
-import { createStoreAction } from "./actions";
+import { checkAdminEmailAction, createStoreAction } from "./actions";
 
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString("en-GB", {
@@ -96,6 +98,7 @@ function NewStoreSheet({
 
 function NewStoreForm({ onDone }: { onDone: () => void }) {
   const [state, formAction, pending] = useActionState(createStoreAction, undefined);
+  const emailCheck = useEmailCheck(checkAdminEmailAction);
 
   // On success the sheet stays open on a confirmation — an invitation link
   // has been emailed; nothing about the Admin exists yet beyond that.
@@ -132,13 +135,31 @@ function NewStoreForm({ onDone }: { onDone: () => void }) {
           <Field label="Store name" required hint="The slug is derived from this.">
             <Input name="storeName" autoComplete="off" placeholder="Acme Resale" />
           </Field>
-          <Field label="First Admin — email" required>
-            <Input name="adminEmail" type="email" autoComplete="off" icon="at-sign" placeholder="name@example.com" />
+          <Field
+            label="First Admin — email"
+            required
+            hint={emailCheck.status === "checking" ? "Checking…" : undefined}
+            error={emailCheck.status === "invalid" ? emailCheck.error : undefined}
+          >
+            <Input
+              name="adminEmail"
+              type="email"
+              autoComplete="off"
+              icon="at-sign"
+              placeholder="name@example.com"
+              value={emailCheck.value}
+              onChange={(e) => emailCheck.setValue(e.target.value)}
+              invalid={emailCheck.status === "invalid"}
+              className={cn(emailCheck.status === "checking" && "ds-working")}
+            />
           </Field>
           {state?.error && <p className="font-ui text-small text-danger">{state.error}</p>}
         </SheetBody>
         <SheetFooter>
-          <Button full type="submit" disabled={pending}>
+          {/* Can't submit an address that hasn't cleared the live check —
+              "checking" and "invalid" both block, same as an empty
+              required field already would. */}
+          <Button full type="submit" disabled={pending || emailCheck.status !== "valid"}>
             {pending ? "Creating…" : "Create Store"}
           </Button>
         </SheetFooter>

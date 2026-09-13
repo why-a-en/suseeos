@@ -17,6 +17,24 @@ import { ServiceError } from "@/services/types";
 
 export type PlatformActionResult = { error?: string };
 
+/**
+ * Live, as-you-type check behind the New Store sheet's admin-email field
+ * (useEmailCheck) — the exact same assertDeliverableEmail() createStoreAction
+ * runs at submit, just run early so a typo or a known-bouncing address is
+ * caught before "Create Store" is even tappable, not after the Store
+ * already exists.
+ */
+export async function checkAdminEmailAction(email: string): Promise<PlatformActionResult> {
+  await requirePlatformUser();
+  try {
+    await assertDeliverableEmail(normalizeEmail(email));
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    throw error;
+  }
+  return {};
+}
+
 /** On success, the address the new Admin's invitation was emailed to. */
 export type NewStoreResult = PlatformActionResult & {
   slug?: string;

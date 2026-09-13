@@ -18,6 +18,8 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Icon } from "@/components/icon";
+import { cn } from "@/lib/utils";
+import { useEmailCheck } from "@/lib/use-email-check";
 import type { PendingInvitation } from "@/lib/auth";
 import type { StaffMember } from "@/services/staff";
 import type { AppRole } from "@/services/types";
@@ -25,6 +27,7 @@ import {
   addStaffAction,
   cancelInviteAction,
   changeStaffRoleAction,
+  checkStaffEmailAction,
   removeStaffAction,
   resendInviteAction,
   resetStaffPasswordAction,
@@ -142,6 +145,7 @@ function AddStaffSheet({
 function AddStaffForm({ onDone }: { onDone: () => void }) {
   const [role, setRole] = useState<AppRole>("support_agent");
   const [state, formAction, pending] = useActionState(addStaffAction, undefined);
+  const emailCheck = useEmailCheck(checkStaffEmailAction);
 
   // On success the sheet stays open on a confirmation — an invitation link
   // has been emailed; nothing about this person exists yet beyond that.
@@ -166,8 +170,23 @@ function AddStaffForm({ onDone }: { onDone: () => void }) {
       <SheetHeader title="Add staff" />
       <form action={formAction}>
         <SheetBody className="grid gap-4">
-          <Field label="Email" required>
-            <Input name="email" type="email" autoComplete="off" icon="at-sign" placeholder="name@example.com" />
+          <Field
+            label="Email"
+            required
+            hint={emailCheck.status === "checking" ? "Checking…" : undefined}
+            error={emailCheck.status === "invalid" ? emailCheck.error : undefined}
+          >
+            <Input
+              name="email"
+              type="email"
+              autoComplete="off"
+              icon="at-sign"
+              placeholder="name@example.com"
+              value={emailCheck.value}
+              onChange={(e) => emailCheck.setValue(e.target.value)}
+              invalid={emailCheck.status === "invalid"}
+              className={cn(emailCheck.status === "checking" && "ds-working")}
+            />
           </Field>
           <Field label="Role" required>
             <SegmentedControl options={ROLE_OPTIONS} value={role} onChange={setRole} />
@@ -176,7 +195,8 @@ function AddStaffForm({ onDone }: { onDone: () => void }) {
           {state?.error && <p className="font-ui text-small text-danger">{state.error}</p>}
         </SheetBody>
         <SheetFooter>
-          <Button full type="submit" disabled={pending}>
+          {/* Can't submit an address that hasn't cleared the live check. */}
+          <Button full type="submit" disabled={pending || emailCheck.status !== "valid"}>
             {pending ? "Sending…" : "Send invitation"}
           </Button>
         </SheetFooter>
