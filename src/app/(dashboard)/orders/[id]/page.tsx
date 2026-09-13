@@ -32,6 +32,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     const [order] = await tx
       .select({
         id: orders.id,
+        orderNumber: orders.orderNumber,
         notes: orders.notes,
         createdAt: orders.createdAt,
         placedAt: orders.placedAt,
@@ -93,7 +94,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           item's lifecycle. That happens from the Purchase Queue ("Can't
           source") or Parcels (its own Cancel), where the person actually
           working that stage is looking at it. */}
-      <TopBar title={order.customerName} eyebrow={order.customerPhone} backHref="/orders" />
+      {/* Order number + customer name, nothing else — the phone number used
+          to sit here as the eyebrow, but that's contact info, not identity;
+          it reads better next to the address below than above the name. */}
+      <TopBar title={`#${order.orderNumber} ${order.customerName}`} backHref="/orders" />
       <ScrollBody>
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-center gap-2">
@@ -104,7 +108,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <Badge tone={order.placedAt ? "accent" : "quiet"}>{order.placedAt ? "Placed" : "Draft"}</Badge>
             <span className="font-ui text-small text-text-faint">by {order.creatorName}</span>
           </div>
-          {order.customerAddress && <p className="font-ui text-small text-text-muted">{order.customerAddress}</p>}
+          <p className="font-ui text-small text-text-muted">
+            {order.customerPhone}
+            {order.customerAddress ? ` · ${order.customerAddress}` : ""}
+          </p>
           {order.notes && <p className="font-ui text-small text-text-body">{order.notes}</p>}
 
           <section className="grid gap-2">

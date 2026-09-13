@@ -170,6 +170,7 @@ export async function fetchOrdersPage(filters: OrdersFilters, cursor: OrdersCurs
     const orderRows = await tx
       .select({
         id: orders.id,
+        orderNumber: orders.orderNumber,
         customerId: orders.customerId,
         customerName: customers.name,
         customerPhone: customers.phone,
@@ -194,6 +195,7 @@ export async function fetchOrdersPage(filters: OrdersFilters, cursor: OrdersCurs
     const rows = pageRows.map(
       (order): OrderRowData => ({
         id: order.id,
+        orderNumber: order.orderNumber,
         customerName: order.customerName,
         createdAtLabel: formatOrderDate(order.createdAt),
         creatorName: order.creatorName,

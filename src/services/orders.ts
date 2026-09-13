@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { and, eq, isNull, notInArray } from "drizzle-orm";
 import { orderItemModifiers, orderItems, orders } from "@/db/schema";
 import { ServiceError, type ServiceContext } from "./types";
@@ -12,6 +13,45 @@ import { ServiceError, type ServiceContext } from "./types";
 // this is about one agent's own follow-up queue staying workable, not a
 // shared org-wide cap.
 export const MAX_OPEN_DRAFTS_PER_USER = 5;
+
+// The 6-digit range an order number is drawn from — 900,000 values per
+// Store. Wide enough that collisions stay rare at any order volume this
+// business will plausibly reach; see pickOrderNumber below for what
+// happens on the rare one anyway.
+const ORDER_NUMBER_MIN = 100_000;
+const ORDER_NUMBER_MAX = 999_999;
+
+/**
+ * Draws a random order number and confirms no other Order in this Store
+ * already has it, retrying on the (rare) collision.
+ *
+ * Check-then-insert, not the usual insert-and-catch-the-unique-violation:
+ * this driver (Neon's serverless one, over `drizzle-orm/neon-serverless`)
+ * doesn't support the SAVEPOINTs a caught violation would need to keep
+ * retrying inside the same transaction — an uncaught one aborts it
+ * outright. That leaves a theoretical TOCTOU race (two saves for the same
+ * Store landing on the same number between this check and the insert
+ * below), accepted rather than engineered around: at this business's
+ * scale, two Support Agents saving orders in the same instant is already
+ * rare, and the two landing on the same one of 900,000 numbers rarer
+ * still — if it ever happens, the insert's own unique index still refuses
+ * it, and the save just fails with the ordinary "couldn't save" error the
+ * caller already shows for any other failure.
+ */
+async function pickOrderNumber(ctx: ServiceContext): Promise<number> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = randomInt(ORDER_NUMBER_MIN, ORDER_NUMBER_MAX + 1);
+    const [clash] = await ctx.tx
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.organizationId, ctx.organizationId), eq(orders.orderNumber, candidate)))
+      .limit(1);
+    if (!clash) return candidate;
+  }
+  // Astronomically unlikely at this range — a bug (or a Store somehow
+  // filling most of the range) is the only realistic way to get here.
+  throw new ServiceError("Couldn't find a free order number — try again.");
+}
 
 export type SaveOrderInput = {
   /** Set when resuming a saved draft; omitted for a brand-new order. */
@@ -100,11 +140,13 @@ export async function saveOrder(
       }
     }
 
+    const orderNumber = await pickOrderNumber(ctx);
     const [order] = await ctx.tx
       .insert(orders)
       .values({
         organizationId: ctx.organizationId,
         customerId: input.customerId,
+        orderNumber,
         notes,
         createdBy: ctx.userId,
         placedAt: place ? new Date() : null,
