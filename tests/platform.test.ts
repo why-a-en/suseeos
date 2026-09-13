@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@/db/client";
-import { accounts, invitations, organizations, users } from "@/db/schema";
+import { db, withOrganizationScope } from "@/db/client";
+import { accounts, customers, invitations, organizations, users } from "@/db/schema";
 import {
   cancelPlatformInvitation,
   createStore,
+  deleteStore,
   getStoreDetail,
   resendPlatformInvitation,
   resetOperatorPassword,
@@ -62,6 +63,62 @@ describe("getStoreDetail", () => {
       email: created.adminEmail,
       role: "admin",
     });
+  });
+
+  it("says canDelete while nothing but the invitation exists", async () => {
+    const created = await freshStore("candelete-empty");
+    const detail = await getStoreDetail(created.storeId);
+    expect(detail!.canDelete).toBe(true);
+  });
+
+  it("says !canDelete once the Store has a Customer on record", async () => {
+    const created = await freshStore("candelete-customer");
+    await withOrganizationScope(created.storeId, (tx) =>
+      tx.insert(customers).values({ organizationId: created.storeId, name: "Test Customer", phone: "0922222222" }),
+    );
+    const detail = await getStoreDetail(created.storeId);
+    expect(detail!.canDelete).toBe(false);
+
+    // So the shared afterAll's plain organizations delete doesn't trip the
+    // FK — customers.organizationId has no onDelete (ADR-0002's recorded
+    // gap, which deleteStore below only closes for the empty case).
+    await withOrganizationScope(created.storeId, (tx) =>
+      tx.delete(customers).where(eq(customers.organizationId, created.storeId)),
+    );
+  });
+});
+
+describe("deleteStore", () => {
+  it("deletes an empty Store — its pending invitation goes with it", async () => {
+    const created = await freshStore("delete-empty");
+
+    await deleteStore(created.storeId);
+    storeIds.splice(storeIds.indexOf(created.storeId), 1); // already gone — afterAll shouldn't touch it
+
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, created.storeId));
+    expect(org).toBeUndefined();
+    const [invite] = await db.select().from(invitations).where(eq(invitations.id, created.invitationId));
+    expect(invite).toBeUndefined();
+  });
+
+  it("refuses a Store with a Customer on record, and leaves it untouched", async () => {
+    const created = await freshStore("delete-customer");
+    await withOrganizationScope(created.storeId, (tx) =>
+      tx.insert(customers).values({ organizationId: created.storeId, name: "Test Customer", phone: "0933333333" }),
+    );
+
+    await expect(deleteStore(created.storeId)).rejects.toThrow(ServiceError);
+
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, created.storeId));
+    expect(org).toBeDefined();
+
+    await withOrganizationScope(created.storeId, (tx) =>
+      tx.delete(customers).where(eq(customers.organizationId, created.storeId)),
+    );
+  });
+
+  it("refuses an id that doesn't exist", async () => {
+    await expect(deleteStore("00000000-0000-0000-0000-000000000000")).rejects.toThrow(ServiceError);
   });
 });
 

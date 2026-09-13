@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requirePlatformUser, roleLabel } from "@/lib/auth";
 import { assertDeliverableEmail, normalizeEmail } from "@/lib/email/address";
 import { sendInvitationEmail } from "@/lib/email/send";
 import {
   cancelPlatformInvitation,
   createStore,
+  deleteStore,
   resendPlatformInvitation,
   setStoreStatus,
 } from "@/services/platform";
@@ -120,6 +122,22 @@ export async function resendStoreInvitationAction(
   }
 
   return {};
+}
+
+/** Deletes a Store outright — only possible while it's still empty; see
+ *  deleteStore's own comment for exactly what that means. Redirects back
+ *  to the list since the detail page it was called from no longer
+ *  resolves to anything. */
+export async function deleteStoreAction(storeId: string): Promise<PlatformActionResult> {
+  await requirePlatformUser();
+  try {
+    await deleteStore(storeId);
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    throw error;
+  }
+  revalidatePath("/platform/stores");
+  redirect("/platform/stores");
 }
 
 /** Revokes a still-pending invitation issued from `/platform`. */
