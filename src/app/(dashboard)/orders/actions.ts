@@ -73,7 +73,7 @@ export async function saveOrderAction(input: SaveOrderInput): Promise<{ orderId:
   // those views on every save, not only when placing.
   revalidatePath("/purchase-queue");
   revalidatePath("/parcels");
-  if (placed) redirect(`/orders/${orderId}`);
+  if (placed) redirect("/orders");
   return { orderId };
 }
 
