@@ -15,12 +15,12 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Icon } from "@/components/icon";
-import type { OrganizationDetail } from "@/services/platform";
+import type { StoreDetail } from "@/services/platform";
 import { impersonateAction } from "../../actions";
 import {
-  cancelOrganizationInvitationAction,
-  resendOrganizationInvitationAction,
-  setOrganizationStatusAction,
+  cancelStoreInvitationAction,
+  resendStoreInvitationAction,
+  setStoreStatusAction,
 } from "../actions";
 
 const ROLE_LABELS = {
@@ -37,50 +37,50 @@ function formatDate(date: Date): string {
   });
 }
 
-type Member = OrganizationDetail["members"][number];
-type PendingInvitation = OrganizationDetail["pendingInvitations"][number];
+type Member = StoreDetail["members"][number];
+type PendingInvitation = StoreDetail["pendingInvitations"][number];
 
-export function OrganizationDetailView({ org }: { org: OrganizationDetail }) {
+export function StoreDetailView({ store }: { store: StoreDetail }) {
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Member | null>(null);
   const [selectedInvite, setSelectedInvite] = useState<PendingInvitation | null>(null);
 
   return (
     <Screen>
-      <TopBar backHref="/platform/organizations" title={org.name} eyebrow="Operator" />
+      <TopBar backHref="/platform/stores" title={store.name} eyebrow="Operator" />
       <ScrollBody>
         <div className="grid gap-3 px-5 py-4">
           <p className="font-ui text-small text-text-faint">
-            <code className="font-mono text-code">{org.slug}</code> · created{" "}
-            {formatDate(org.createdAt)}
-            {org.status === "suspended" && (
+            <code className="font-mono text-code">{store.slug}</code> · created{" "}
+            {formatDate(store.createdAt)}
+            {store.status === "suspended" && (
               <span className="text-danger"> · suspended</span>
             )}
           </p>
 
           {/* Suspension is the only lever over a client account (ADR-0002
-              §8) — a suspended Organization resolves to no session for every
+              §8) — a suspended Store resolves to no session for every
               one of its members on their next request. */}
           <Button
             full
-            variant={org.status === "suspended" ? "secondary" : "danger"}
+            variant={store.status === "suspended" ? "secondary" : "danger"}
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
-                const result = await setOrganizationStatusAction(
-                  org.id,
-                  org.status === "suspended" ? "active" : "suspended",
+                const result = await setStoreStatusAction(
+                  store.id,
+                  store.status === "suspended" ? "active" : "suspended",
                 );
                 if (result.error) toast.error(result.error);
               })
             }
           >
-            {org.status === "suspended" ? "Restore Store" : "Suspend Store"}
+            {store.status === "suspended" ? "Restore Store" : "Suspend Store"}
           </Button>
         </div>
 
-        <SectionHeader right={`${org.members.length}`}>Members</SectionHeader>
-        {org.members.map((member) => (
+        <SectionHeader right={`${store.members.length}`}>Members</SectionHeader>
+        {store.members.map((member) => (
           <Row key={member.userId} onClick={() => setSelected(member)}>
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate">{member.name}</span>
@@ -100,10 +100,10 @@ export function OrganizationDetailView({ org }: { org: OrganizationDetail }) {
 
         {/* Hidden entirely once nobody's waiting — almost always just the
             first Admin's, until it's accepted. */}
-        {org.pendingInvitations.length > 0 && (
+        {store.pendingInvitations.length > 0 && (
           <>
-            <SectionHeader right={`${org.pendingInvitations.length}`}>Pending</SectionHeader>
-            {org.pendingInvitations.map((invite) => (
+            <SectionHeader right={`${store.pendingInvitations.length}`}>Pending</SectionHeader>
+            {store.pendingInvitations.map((invite) => (
               <Row key={invite.id} onClick={() => setSelectedInvite(invite)}>
                 <span className="min-w-0 flex-1 truncate">{invite.email}</span>
                 <div className="flex shrink-0 items-center gap-2">
@@ -118,11 +118,11 @@ export function OrganizationDetailView({ org }: { org: OrganizationDetail }) {
 
       <MemberSheet
         member={selected}
-        orgSuspended={org.status === "suspended"}
+        storeSuspended={store.status === "suspended"}
         onClose={() => setSelected(null)}
       />
       <InviteSheet
-        organizationId={org.id}
+        storeId={store.id}
         invite={selectedInvite}
         onClose={() => setSelectedInvite(null)}
       />
@@ -132,11 +132,11 @@ export function OrganizationDetailView({ org }: { org: OrganizationDetail }) {
 
 function MemberSheet({
   member,
-  orgSuspended,
+  storeSuspended,
   onClose,
 }: {
   member: Member | null;
-  orgSuspended: boolean;
+  storeSuspended: boolean;
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -156,14 +156,14 @@ function MemberSheet({
               </p>
             </SheetBody>
             <SheetFooter>
-              {/* Can't impersonate into a suspended org — its members
+              {/* Can't impersonate into a suspended Store — its members
                   resolve to no session, so the impersonated view would just
                   be the login screen. Restore it first. */}
               <Button
                 full
                 variant="secondary"
                 icon="user"
-                disabled={pending || orgSuspended}
+                disabled={pending || storeSuspended}
                 onClick={() =>
                   startTransition(async () => {
                     const result = await impersonateAction(member.email);
@@ -171,7 +171,7 @@ function MemberSheet({
                   })
                 }
               >
-                {orgSuspended ? "Can't impersonate — org suspended" : "Impersonate"}
+                {storeSuspended ? "Can't impersonate — Store suspended" : "Impersonate"}
               </Button>
             </SheetFooter>
           </>
@@ -182,11 +182,11 @@ function MemberSheet({
 }
 
 function InviteSheet({
-  organizationId,
+  storeId,
   invite,
   onClose,
 }: {
-  organizationId: string;
+  storeId: string;
   invite: PendingInvitation | null;
   onClose: () => void;
 }) {
@@ -195,7 +195,7 @@ function InviteSheet({
   function resend() {
     if (!invite) return;
     startTransition(async () => {
-      const result = await resendOrganizationInvitationAction(organizationId, invite.id);
+      const result = await resendStoreInvitationAction(storeId, invite.id);
       if (result.error) {
         toast.error(result.error);
         return;
@@ -208,7 +208,7 @@ function InviteSheet({
   function cancel() {
     if (!invite) return;
     startTransition(async () => {
-      const result = await cancelOrganizationInvitationAction(organizationId, invite.id);
+      const result = await cancelStoreInvitationAction(storeId, invite.id);
       if (result.error) {
         toast.error(result.error);
         return;

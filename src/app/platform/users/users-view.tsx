@@ -39,8 +39,8 @@ const ROLE_SEGMENTS: { value: RoleFilter; label: string }[] = [
 
 function membershipLine(user: PlatformUserRow): string {
   if (user.isOperator) return "Platform operator";
-  if (user.memberships.length === 0) return "No organizations";
-  return user.memberships.map((m) => `${m.orgName} · ${ROLE_LABELS[m.role]}`).join("   ");
+  if (user.memberships.length === 0) return "No Stores";
+  return user.memberships.map((m) => `${m.storeName} · ${ROLE_LABELS[m.role]}`).join("   ");
 }
 
 export function UsersView({ users }: { users: PlatformUserRow[] }) {
@@ -141,17 +141,17 @@ function UserSheet({
                 ) : (
                   user.memberships.map((m) => (
                     <div
-                      key={m.orgSlug}
+                      key={m.storeSlug}
                       className="flex items-center justify-between gap-2 rounded-md border border-line-hairline bg-surface-card px-3 py-2"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-ui text-small-strong text-text-strong">
-                          {m.orgName}
+                          {m.storeName}
                         </div>
                         <div className="font-ui text-small text-text-faint">
                           {ROLE_LABELS[m.role]}
                           {m.memberStatus === "suspended" && " · suspended"}
-                          {m.orgStatus === "suspended" && " · org suspended"}
+                          {m.storeStatus === "suspended" && " · Store suspended"}
                         </div>
                       </div>
                     </div>

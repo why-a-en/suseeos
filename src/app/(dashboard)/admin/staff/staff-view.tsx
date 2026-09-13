@@ -321,7 +321,7 @@ function ManageStaffSheet({
                   disabled={pending}
                   onClick={() => run(() => removeStaffAction(member.memberId))}
                 >
-                  Remove from Organization
+                  Remove from Store
                 </Button>
               </div>
             </SheetBody>

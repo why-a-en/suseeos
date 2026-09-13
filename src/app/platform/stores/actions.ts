@@ -6,9 +6,9 @@ import { assertDeliverableEmail, normalizeEmail } from "@/lib/email/address";
 import { sendInvitationEmail } from "@/lib/email/send";
 import {
   cancelPlatformInvitation,
-  createOrganization,
+  createStore,
   resendPlatformInvitation,
-  setOrganizationStatus,
+  setStoreStatus,
 } from "@/services/platform";
 import { ServiceError } from "@/services/types";
 
@@ -18,27 +18,27 @@ import { ServiceError } from "@/services/types";
 export type PlatformActionResult = { error?: string };
 
 /** On success, the address the new Admin's invitation was emailed to. */
-export type NewOrgResult = PlatformActionResult & {
+export type NewStoreResult = PlatformActionResult & {
   slug?: string;
   invitedEmail?: string;
 };
 
-export async function createOrganizationAction(
-  _prev: NewOrgResult | undefined,
+export async function createStoreAction(
+  _prev: NewStoreResult | undefined,
   formData: FormData,
-): Promise<NewOrgResult> {
+): Promise<NewStoreResult> {
   const platformUser = await requirePlatformUser();
 
-  const organizationName = String(formData.get("organizationName") ?? "").trim();
+  const storeName = String(formData.get("storeName") ?? "").trim();
   const adminEmail = normalizeEmail(String(formData.get("adminEmail") ?? ""));
 
-  let created: Awaited<ReturnType<typeof createOrganization>>;
+  let created: Awaited<ReturnType<typeof createStore>>;
   try {
     // Before we create anything: is this address even deliverable? A bad one
     // here is a hard bounce Resend holds against the whole sending domain.
     await assertDeliverableEmail(adminEmail);
-    created = await createOrganization({
-      organizationName,
+    created = await createStore({
+      storeName,
       adminEmail,
       invitedById: platformUser.id,
     });
@@ -47,16 +47,16 @@ export async function createOrganizationAction(
     throw error;
   }
 
-  revalidatePath("/platform/organizations");
+  revalidatePath("/platform/stores");
 
   // The invitations row already exists — created is the record, not a
   // credential that vanishes if this send fails. If Resend won't take it,
-  // say so; resendOrganizationInvitationAction below is exactly that
-  // recourse, from the Store's own detail page.
+  // say so; resendStoreInvitationAction below is exactly that recourse,
+  // from the Store's own detail page.
   try {
     await sendInvitationEmail({
       to: created.adminEmail,
-      storeName: organizationName,
+      storeName,
       roleLabel: roleLabel("admin"),
       token: created.invitationId,
       inviterName: platformUser.name,
@@ -71,15 +71,15 @@ export async function createOrganizationAction(
   return { slug: created.slug, invitedEmail: created.adminEmail };
 }
 
-export async function setOrganizationStatusAction(
-  organizationId: string,
+export async function setStoreStatusAction(
+  storeId: string,
   status: "active" | "suspended",
 ): Promise<PlatformActionResult> {
   await requirePlatformUser();
   try {
-    await setOrganizationStatus({ organizationId, status });
-    revalidatePath("/platform/organizations");
-    // A suspended Organization must stop resolving to a session for its
+    await setStoreStatus({ storeId, status });
+    revalidatePath("/platform/stores");
+    // A suspended Store must stop resolving to a session for its
     // members — bust the whole tenant layout cache.
     revalidatePath("/", "layout");
     return {};
@@ -91,8 +91,8 @@ export async function setOrganizationStatusAction(
 
 /** Re-sends a still-pending invitation issued from `/platform` — the
  *  operator's recourse when the first send bounced or was lost. */
-export async function resendOrganizationInvitationAction(
-  organizationId: string,
+export async function resendStoreInvitationAction(
+  storeId: string,
   invitationId: string,
 ): Promise<PlatformActionResult> {
   const platformUser = await requirePlatformUser();
@@ -105,12 +105,12 @@ export async function resendOrganizationInvitationAction(
     throw error;
   }
 
-  revalidatePath(`/platform/organizations/${organizationId}`);
+  revalidatePath(`/platform/stores/${storeId}`);
 
   try {
     await sendInvitationEmail({
       to: resent.email,
-      storeName: resent.organizationName,
+      storeName: resent.storeName,
       roleLabel: roleLabel(resent.role),
       token: resent.invitationId,
       inviterName: platformUser.name,
@@ -123,8 +123,8 @@ export async function resendOrganizationInvitationAction(
 }
 
 /** Revokes a still-pending invitation issued from `/platform`. */
-export async function cancelOrganizationInvitationAction(
-  organizationId: string,
+export async function cancelStoreInvitationAction(
+  storeId: string,
   invitationId: string,
 ): Promise<PlatformActionResult> {
   await requirePlatformUser();
@@ -134,6 +134,6 @@ export async function cancelOrganizationInvitationAction(
     if (error instanceof ServiceError) return { error: error.message };
     throw error;
   }
-  revalidatePath(`/platform/organizations/${organizationId}`);
+  revalidatePath(`/platform/stores/${storeId}`);
   return {};
 }

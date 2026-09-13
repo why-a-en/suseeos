@@ -17,8 +17,8 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Icon } from "@/components/icon";
-import type { OrganizationSummary } from "@/services/platform";
-import { createOrganizationAction } from "./actions";
+import type { StoreSummary } from "@/services/platform";
+import { createStoreAction } from "./actions";
 
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString("en-GB", {
@@ -28,10 +28,10 @@ function formatDate(date: Date): string {
   });
 }
 
-export function OrganizationsView({
-  organizations,
+export function StoresView({
+  stores,
 }: {
-  organizations: OrganizationSummary[];
+  stores: StoreSummary[];
 }) {
   const [creating, setCreating] = useState(false);
 
@@ -39,25 +39,25 @@ export function OrganizationsView({
     <Screen>
       <TopBar backHref="/platform" title="Stores" eyebrow="Operator" />
       <ScrollBody>
-        <SectionHeader right={`${organizations.length}`}>All Stores</SectionHeader>
+        <SectionHeader right={`${stores.length}`}>All Stores</SectionHeader>
 
-        {organizations.length === 0 ? (
+        {stores.length === 0 ? (
           <EmptyState
             icon="inbox"
             title="No Stores yet."
             body="Create one below — it provisions the Store and invites its first Admin."
           />
         ) : (
-          organizations.map((org) => (
-            <Row key={org.id} href={`/platform/organizations/${org.id}`}>
+          stores.map((store) => (
+            <Row key={store.id} href={`/platform/stores/${store.id}`}>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate">{org.name}</span>
+                <span className="truncate">{store.name}</span>
                 <span className="truncate font-ui text-small text-text-faint">
-                  {org.memberCount} member{org.memberCount === 1 ? "" : "s"} · {formatDate(org.createdAt)}
+                  {store.memberCount} member{store.memberCount === 1 ? "" : "s"} · {formatDate(store.createdAt)}
                 </span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {org.status === "suspended" && (
+                {store.status === "suspended" && (
                   <span className="font-ui text-small text-danger">Suspended</span>
                 )}
                 <Icon name="chevron-right" size={16} className="text-text-faint" />
@@ -73,12 +73,12 @@ export function OrganizationsView({
         </div>
       </ScrollBody>
 
-      <NewOrgSheet open={creating} onOpenChange={setCreating} />
+      <NewStoreSheet open={creating} onOpenChange={setCreating} />
     </Screen>
   );
 }
 
-function NewOrgSheet({
+function NewStoreSheet({
   open,
   onOpenChange,
 }: {
@@ -89,13 +89,13 @@ function NewOrgSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* Fresh form (and fresh useActionState) on every open, so a previous
           submit's one-time password is never still on screen. */}
-      <SheetContent>{open && <NewOrgForm onDone={() => onOpenChange(false)} />}</SheetContent>
+      <SheetContent>{open && <NewStoreForm onDone={() => onOpenChange(false)} />}</SheetContent>
     </Sheet>
   );
 }
 
-function NewOrgForm({ onDone }: { onDone: () => void }) {
-  const [state, formAction, pending] = useActionState(createOrganizationAction, undefined);
+function NewStoreForm({ onDone }: { onDone: () => void }) {
+  const [state, formAction, pending] = useActionState(createStoreAction, undefined);
 
   // On success the sheet stays open on a confirmation — an invitation link
   // has been emailed; nothing about the Admin exists yet beyond that.
@@ -130,7 +130,7 @@ function NewOrgForm({ onDone }: { onDone: () => void }) {
       <form action={formAction}>
         <SheetBody className="grid gap-4">
           <Field label="Store name" required hint="The slug is derived from this.">
-            <Input name="organizationName" autoComplete="off" placeholder="Acme Resale" />
+            <Input name="storeName" autoComplete="off" placeholder="Acme Resale" />
           </Field>
           <Field label="First Admin — email" required>
             <Input name="adminEmail" type="email" autoComplete="off" icon="at-sign" placeholder="name@example.com" />

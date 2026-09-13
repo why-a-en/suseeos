@@ -48,7 +48,7 @@ export function LoginForm() {
           <p className="font-ui text-small-strong text-text-strong">Test accounts</p>
           <p className="mt-0.5 font-ui text-small text-text-faint">
             All <code className="font-mono text-code">password123</code>. Each covers a
-            different Organization / Store scenario.
+            different Store scenario.
           </p>
           <ul className="mt-3 grid gap-2.5">
             {TEST_ACCOUNTS.map((account) => (

@@ -16,14 +16,14 @@ export default async function PlatformHome() {
   const user = await requirePlatformUser();
   const m = await platformMetrics();
 
-  const newThisWeek = m.newLast7Days.organizations + m.newLast7Days.users;
+  const newThisWeek = m.newLast7Days.stores + m.newLast7Days.users;
 
   return (
     <Screen>
       <TopBar brand title="Operator" eyebrow={user.email} />
       <ScrollBody>
         <div className="grid grid-cols-2 gap-3 px-5 pt-4">
-          <StatTile value={m.organizations.total} label="Stores" />
+          <StatTile value={m.stores.total} label="Stores" />
           <StatTile value={m.users} label="Users" />
         </div>
         <p className="px-5 pt-2 font-ui text-small text-text-faint">
@@ -32,15 +32,15 @@ export default async function PlatformHome() {
           {m.members.byRole.supplier === 1 ? "" : "s"}
           {newThisWeek > 0 && ` · ${newThisWeek} new this week`}
         </p>
-        {m.organizations.suspended > 0 && (
+        {m.stores.suspended > 0 && (
           <p className="px-5 pt-1 font-ui text-small text-danger">
-            {m.organizations.suspended} Store
-            {m.organizations.suspended === 1 ? "" : "s"} suspended
+            {m.stores.suspended} Store
+            {m.stores.suspended === 1 ? "" : "s"} suspended
           </p>
         )}
 
         <SectionHeader>Manage</SectionHeader>
-        <Row href="/platform/organizations">
+        <Row href="/platform/stores">
           <Icon name="inbox" size={18} className="shrink-0 text-text-faint" />
           <span className="flex-1">Stores</span>
           <Icon name="chevron-right" size={16} className="shrink-0 text-text-faint" />
