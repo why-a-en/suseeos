@@ -1,0 +1,51 @@
+name: Run database migrations
+
+# dev and main are the only two branches this ever runs against — both
+# long-lived (CLAUDE.md), each with its own Neon database via the
+# Vercel integration. Runs on every push that lands on either, not as a
+# PR check: there's no separate "approve this migration" step in this
+# app's workflow, and running on a push with no new migration is a
+# harmless no-op — drizzle-kit only applies what isn't already recorded
+# in __drizzle_migrations.
+#
+# Exists because schema drift is otherwise silent: a migration merged
+# into dev's (or main's) code doesn't apply itself to that branch's
+# actual database. That gap is what took /orders down on dev after
+# PR #24 (order_number) merged with nothing to run it.
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch: {} # catch up a branch that already drifted
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # GitHub Environment name, not Vercel's — separate from the "Preview"
+    # environment the Vercel integration manages. Gives dev and main each
+    # their own DATABASE_URL_UNPOOLED secret under the same key, and a
+    # place to attach required-reviewer protection to `production` later
+    # without touching this file.
+    environment: ${{ github.ref_name == 'main' && 'production' || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm db:migrate
+        env:
+          # drizzle.config.ts also tries to load .env.local via dotenv;
+          # that's a silent no-op when the file doesn't exist (CI), so it
+          # doesn't fight with this.
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
