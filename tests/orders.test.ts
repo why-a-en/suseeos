@@ -147,6 +147,10 @@ describe("saveOrder", () => {
     // Placing stamps placed_at — that is what releases items to the queue.
     expect(order.placedAt).not.toBeNull();
     expect(order.createdBy).toBe(userId);
+    // Random, 6 characters from the misread-proof alphabet (services/
+    // password.ts's READABLE_ALPHABET), drawn by pickOrderNumber — not the
+    // sequential 1, 2, 3 a plain row count would give.
+    expect(order.orderNumber).toMatch(/^[abcdefghjkmnpqrtuvwxyz2346789]{6}$/);
 
     const items = await asOrg(orgId, ({ tx }) =>
       tx.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
@@ -162,6 +166,28 @@ describe("saveOrder", () => {
         .where(eq(orderItemModifiers.orderItemId, items[0].id)),
     );
     expect(mods.map((m) => m.modifierOptionId)).toEqual([optionId]);
+  });
+
+  it("gives two orders in the same Organization different order numbers", async () => {
+    const first = await asOrg(orgId, (ctx) => saveOrder(ctx, { customerId, place: false, items: [] }));
+    const second = await asOrg(orgId, (ctx) => saveOrder(ctx, { customerId, place: false, items: [] }));
+
+    try {
+      const rows = await asOrg(orgId, ({ tx }) =>
+        tx.select({ id: orders.id, orderNumber: orders.orderNumber }).from(orders).where(
+          inArray(orders.id, [first.orderId, second.orderId]),
+        ),
+      );
+      const numbers = rows.map((r) => r.orderNumber);
+      expect(new Set(numbers).size).toBe(2);
+    } finally {
+      // Both are drafts, and this file's other tests share this Org/user —
+      // left in place they'd count toward MAX_OPEN_DRAFTS_PER_USER for
+      // every test after this one.
+      await asOrg(orgId, ({ tx }) =>
+        tx.delete(orders).where(inArray(orders.id, [first.orderId, second.orderId])),
+      );
+    }
   });
 
   it("leaves placed_at null for a draft", async () => {

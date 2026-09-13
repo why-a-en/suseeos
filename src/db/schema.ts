@@ -434,6 +434,15 @@ export const orders = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id),
+    // What a Support Agent actually says to a Customer — "check on order
+    // K3XQ9M" — instead of the id above, which is neither said aloud nor
+    // typed. 6 characters from the same misread-proof alphabet temporary
+    // passwords use (services/password.ts), picked and checked for
+    // collision by services/orders.ts. Deliberately random, not
+    // sequential: a sequential number tells anyone who sees two of them
+    // roughly how many orders this Store has ever placed, which is
+    // nobody else's business.
+    orderNumber: text("order_number").notNull(),
     screenshotUrl: text("screenshot_url"),
     notes: text("notes"),
     createdBy: uuid("created_by")
@@ -449,6 +458,10 @@ export const orders = pgTable(
   },
   (table) => [
     index("orders_organization_customer_idx").on(table.organizationId, table.customerId),
+    // Enforces the one invariant a random pick needs backing up: the
+    // service layer generates and retries against this, never trusts the
+    // random draw alone.
+    uniqueIndex("orders_organization_order_number_unique").on(table.organizationId, table.orderNumber),
     // `id` is part of the key because the Order log pages by keyset on
     // (created_at, id) — see fetchOrdersPage. created_at alone isn't unique,
     // so the sort it defines isn't total and a cursor on it drops or repeats

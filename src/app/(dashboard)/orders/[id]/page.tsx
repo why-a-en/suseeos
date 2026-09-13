@@ -32,6 +32,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     const [order] = await tx
       .select({
         id: orders.id,
+        orderNumber: orders.orderNumber,
         notes: orders.notes,
         createdAt: orders.createdAt,
         placedAt: orders.placedAt,
@@ -93,7 +94,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           item's lifecycle. That happens from the Purchase Queue ("Can't
           source") or Parcels (its own Cancel), where the person actually
           working that stage is looking at it. */}
-      <TopBar title={order.customerName} eyebrow={order.customerPhone} backHref="/orders" />
+      {/* Order number as the eyebrow, customer name as the title — the
+          TopBar's normal two-line shape, not one line carrying both. The
+          phone number used to sit in the eyebrow instead, but that's
+          contact info, not identity; it's a labeled row below now, next to
+          the address. */}
+      <TopBar eyebrow={`#${order.orderNumber}`} title={order.customerName} backHref="/orders" />
       <ScrollBody>
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-center gap-2">
@@ -104,7 +110,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <Badge tone={order.placedAt ? "accent" : "quiet"}>{order.placedAt ? "Placed" : "Draft"}</Badge>
             <span className="font-ui text-small text-text-faint">by {order.creatorName}</span>
           </div>
-          {order.customerAddress && <p className="font-ui text-small text-text-muted">{order.customerAddress}</p>}
+
+          {/* Same labeled-row shape as Parcels' item sheet (parcels-view.tsx)
+              — a mono micro-label left, the value right-aligned. */}
+          <div className="grid gap-2">
+            <div className="flex justify-between gap-3 border-b border-line-hairline pb-2">
+              <span className="font-mono text-label tracking-label uppercase text-text-faint">Phone</span>
+              <span className="text-right font-ui text-small text-text-body">{order.customerPhone}</span>
+            </div>
+            {order.customerAddress && (
+              <div className="flex justify-between gap-3 border-b border-line-hairline pb-2">
+                <span className="font-mono text-label tracking-label uppercase text-text-faint">Address</span>
+                <span className="text-right font-ui text-small text-text-body">{order.customerAddress}</span>
+              </div>
+            )}
+          </div>
           {order.notes && <p className="font-ui text-small text-text-body">{order.notes}</p>}
 
           <section className="grid gap-2">

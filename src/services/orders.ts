@@ -1,5 +1,7 @@
+import { randomInt } from "node:crypto";
 import { and, eq, isNull, notInArray } from "drizzle-orm";
 import { orderItemModifiers, orderItems, orders } from "@/db/schema";
+import { READABLE_ALPHABET } from "./password";
 import { ServiceError, type ServiceContext } from "./types";
 
 // Order writes. No `next/*` imports — see ./types.ts and
@@ -12,6 +14,52 @@ import { ServiceError, type ServiceContext } from "./types";
 // this is about one agent's own follow-up queue staying workable, not a
 // shared org-wide cap.
 export const MAX_OPEN_DRAFTS_PER_USER = 5;
+
+// 6 characters from the same 29-character, misread-proof alphabet the
+// temporary-password generator uses (services/password.ts) — this is read
+// aloud and typed into chat messages the same way. 29^6 ≈ 594 million
+// possible codes per Store: wide enough that collisions stay rare at any
+// order volume this business will plausibly reach; see pickOrderNumber
+// below for what happens on the rare one anyway.
+const ORDER_NUMBER_LENGTH = 6;
+
+function randomOrderNumber(): string {
+  let out = "";
+  for (let i = 0; i < ORDER_NUMBER_LENGTH; i++) out += READABLE_ALPHABET[randomInt(READABLE_ALPHABET.length)];
+  return out;
+}
+
+/**
+ * Draws a random order number and confirms no other Order in this Store
+ * already has it, retrying on the (rare) collision.
+ *
+ * Check-then-insert, not the usual insert-and-catch-the-unique-violation:
+ * this driver (Neon's serverless one, over `drizzle-orm/neon-serverless`)
+ * doesn't support the SAVEPOINTs a caught violation would need to keep
+ * retrying inside the same transaction — an uncaught one aborts it
+ * outright. That leaves a theoretical TOCTOU race (two saves for the same
+ * Store landing on the same code between this check and the insert
+ * below), accepted rather than engineered around: at this business's
+ * scale, two Support Agents saving orders in the same instant is already
+ * rare, and the two landing on the same one of ~594 million codes rarer
+ * still — if it ever happens, the insert's own unique index still refuses
+ * it, and the save just fails with the ordinary "couldn't save" error the
+ * caller already shows for any other failure.
+ */
+async function pickOrderNumber(ctx: ServiceContext): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = randomOrderNumber();
+    const [clash] = await ctx.tx
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.organizationId, ctx.organizationId), eq(orders.orderNumber, candidate)))
+      .limit(1);
+    if (!clash) return candidate;
+  }
+  // Astronomically unlikely at this range — a bug (or a Store somehow
+  // filling most of the range) is the only realistic way to get here.
+  throw new ServiceError("Couldn't find a free order number — try again.");
+}
 
 export type SaveOrderInput = {
   /** Set when resuming a saved draft; omitted for a brand-new order. */
@@ -100,11 +148,13 @@ export async function saveOrder(
       }
     }
 
+    const orderNumber = await pickOrderNumber(ctx);
     const [order] = await ctx.tx
       .insert(orders)
       .values({
         organizationId: ctx.organizationId,
         customerId: input.customerId,
+        orderNumber,
         notes,
         createdBy: ctx.userId,
         placedAt: place ? new Date() : null,

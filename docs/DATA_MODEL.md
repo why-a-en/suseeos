@@ -126,6 +126,7 @@ erDiagram
     ORDERS {
         uuid id PK
         uuid organization_id FK
+        text order_number
         uuid customer_id FK
         text screenshot_url
         text notes
@@ -396,6 +397,7 @@ from "handed off" without needing a full status column.
 |---|---|---|
 | `id` | `uuid` PK | |
 | `organization_id` | `uuid` FK | |
+| `order_number` | `text` NOT NULL | random 6 characters from the same misread-proof alphabet as temporary passwords (`services/password.ts`'s `READABLE_ALPHABET`), unique per Organization (`orders_organization_order_number_unique`) — what's actually said aloud or typed to find an order, not `id`. Drawn by `pickOrderNumber` in `services/orders.ts`; deliberately not sequential, so two of them can't be compared to guess how many orders this Store has ever placed |
 | `customer_id` | `uuid` FK → `customers.id` NOT NULL | |
 | `screenshot_url` | `text` | nullable — R2 object URL |
 | `notes` | `text` | nullable |

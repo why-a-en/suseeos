@@ -37,6 +37,9 @@ const DEFAULT_STATUS: OrderStatus = "placed";
 
 export interface OrderRowData {
   id: string;
+  /** Random, unique per Store (services/orders.ts) — what's actually said
+   *  aloud or typed to look an order up, never the id above. */
+  orderNumber: string;
   customerName: string;
   /** Preformatted on the server — see formatOrderDate in page.tsx. */
   createdAtLabel: string;
@@ -171,7 +174,9 @@ export function OrdersView({
           filtered.map((order) => (
             <Row key={order.id} href={order.isDraft ? `/orders/new?draft=${order.id}` : `/orders/${order.id}`} className="min-h-[62px]">
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-ui text-body-strong text-text-strong">{order.customerName}</span>
+                <span className="block truncate font-ui text-body-strong text-text-strong">
+                  <span className="text-text-faint">#{order.orderNumber}</span> {order.customerName}
+                </span>
                 <span className="mt-0.5 block truncate font-ui text-small text-text-faint">
                   By {order.creatorName}
                 </span>
