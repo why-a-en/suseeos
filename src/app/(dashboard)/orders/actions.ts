@@ -95,12 +95,8 @@ export async function deleteDraftAction(orderId: string): Promise<void> {
  * request rather than something that quietly grows after Purchasing has
  * already acted on it.
  */
-export async function cancelOrderItemAction(formData: FormData) {
-  const orderItemId = String(formData.get("orderItemId") ?? "");
-  const orderId = String(formData.get("orderId") ?? "");
-  const reason = String(formData.get("reason") ?? "");
-
-  await withCurrentOrganization((ctx) => cancelOrderItem(ctx, { orderItemId, reason }));
+export async function cancelOrderItemAction(orderItemId: string, orderId: string) {
+  await withCurrentOrganization((ctx) => cancelOrderItem(ctx, { orderItemId }));
 
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/purchase-queue");

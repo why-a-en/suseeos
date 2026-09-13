@@ -99,10 +99,7 @@ export function ParcelsView({ items, status: initialStatus }: { items: ParcelIte
     setCancellingId(item.id);
     startTransition(async () => {
       try {
-        const formData = new FormData();
-        formData.set("orderItemId", item.id);
-        formData.set("orderId", item.orderId);
-        await cancelOrderItemAction(formData);
+        await cancelOrderItemAction(item.id, item.orderId);
         setOpen(null);
         toast.success(`${item.productName} cancelled`);
       } catch (e) {
