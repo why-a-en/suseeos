@@ -8,7 +8,7 @@ import { ServiceError, type AppRole } from "./types";
 // Invitations expire in 7 days everywhere they're issued — kept in sync by
 // hand with the org plugin's own `invitationExpiresIn` (config.ts) since
 // this file writes the row directly rather than through the plugin (see
-// createOrganization's own comment for why).
+// createStore's own comment for why).
 const INVITATION_EXPIRES_IN_MS = 60 * 60 * 24 * 7 * 1000;
 
 // The platform console — provisioning and suspending client Stores. This is
@@ -23,7 +23,7 @@ const INVITATION_EXPIRES_IN_MS = 60 * 60 * 24 * 7 * 1000;
 // sub-Store layer this used to also provision) — nothing left for its Admin
 // to set up beyond accepting the invite below.
 
-export type OrganizationSummary = {
+export type StoreSummary = {
   id: string;
   name: string;
   slug: string;
@@ -32,7 +32,7 @@ export type OrganizationSummary = {
   createdAt: Date;
 };
 
-export async function listOrganizations(): Promise<OrganizationSummary[]> {
+export async function listStores(): Promise<StoreSummary[]> {
   const rows = await db
     .select({
       id: organizations.id,
@@ -50,7 +50,7 @@ export async function listOrganizations(): Promise<OrganizationSummary[]> {
   return rows;
 }
 
-export type OrganizationDetail = {
+export type StoreDetail = {
   id: string;
   name: string;
   slug: string;
@@ -76,11 +76,11 @@ export type OrganizationDetail = {
   }[];
 };
 
-/** One Organization, everyone in it, and anyone still waiting to accept.
+/** One Store, everyone in it, and anyone still waiting to accept.
  *  Null for an unknown id. */
-export async function getOrganizationDetail(
-  organizationId: string,
-): Promise<OrganizationDetail | null> {
+export async function getStoreDetail(
+  storeId: string,
+): Promise<StoreDetail | null> {
   const [org] = await db
     .select({
       id: organizations.id,
@@ -90,7 +90,7 @@ export async function getOrganizationDetail(
       createdAt: organizations.createdAt,
     })
     .from(organizations)
-    .where(eq(organizations.id, organizationId))
+    .where(eq(organizations.id, storeId))
     .limit(1);
   if (!org) return null;
 
@@ -105,14 +105,14 @@ export async function getOrganizationDetail(
     })
     .from(members)
     .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(members.organizationId, organizationId))
+    .where(eq(members.organizationId, storeId))
     .orderBy(members.createdAt);
 
   const now = new Date();
   const inviteRows = await db
     .select({ id: invitations.id, email: invitations.email, role: invitations.role, expiresAt: invitations.expiresAt })
     .from(invitations)
-    .where(and(eq(invitations.organizationId, organizationId), eq(invitations.status, "pending"), gt(invitations.expiresAt, now)))
+    .where(and(eq(invitations.organizationId, storeId), eq(invitations.status, "pending"), gt(invitations.expiresAt, now)))
     .orderBy(desc(invitations.createdAt));
 
   return {
@@ -123,10 +123,10 @@ export async function getOrganizationDetail(
 }
 
 export type PlatformMetrics = {
-  organizations: { total: number; suspended: number };
+  stores: { total: number; suspended: number };
   users: number;
   members: { active: number; byRole: Record<AppRole, number> };
-  newLast7Days: { organizations: number; users: number };
+  newLast7Days: { stores: number; users: number };
 };
 
 /**
@@ -170,10 +170,10 @@ export async function platformMetrics(): Promise<PlatformMetrics> {
   }
 
   return {
-    organizations: { total: orgTotal.n, suspended: orgSuspended.n },
+    stores: { total: orgTotal.n, suspended: orgSuspended.n },
     users: userTotal.n,
     members: { active: memberTotal.n, byRole },
-    newLast7Days: { organizations: orgNew.n, users: userNew.n },
+    newLast7Days: { stores: orgNew.n, users: userNew.n },
   };
 }
 
@@ -185,16 +185,16 @@ export type PlatformUserRow = {
   /** True for a platform operator — they have no memberships and never touch the tenant app. */
   isOperator: boolean;
   memberships: {
-    orgName: string;
-    orgSlug: string;
-    orgStatus: "active" | "suspended";
+    storeName: string;
+    storeSlug: string;
+    storeStatus: "active" | "suspended";
     role: AppRole;
     memberStatus: "active" | "suspended";
   }[];
 };
 
 /**
- * Every person on the platform, with the Organizations they belong to.
+ * Every person on the platform, with the Stores they belong to.
  * No pagination yet — an operator tool at this volume. All from RLS-exempt
  * tables.
  */
@@ -205,9 +205,9 @@ export async function listUsers(): Promise<PlatformUserRow[]> {
       name: users.name,
       email: users.email,
       createdAt: users.createdAt,
-      orgName: organizations.name,
-      orgSlug: organizations.slug,
-      orgStatus: organizations.status,
+      storeName: organizations.name,
+      storeSlug: organizations.slug,
+      storeStatus: organizations.status,
       role: members.role,
       memberStatus: members.status,
     })
@@ -230,11 +230,11 @@ export async function listUsers(): Promise<PlatformUserRow[]> {
       };
       byUser.set(r.id, u);
     }
-    if (r.orgName && r.orgSlug && r.orgStatus && r.role && r.memberStatus) {
+    if (r.storeName && r.storeSlug && r.storeStatus && r.role && r.memberStatus) {
       u.memberships.push({
-        orgName: r.orgName,
-        orgSlug: r.orgSlug,
-        orgStatus: r.orgStatus,
+        storeName: r.storeName,
+        storeSlug: r.storeSlug,
+        storeStatus: r.storeStatus,
         role: r.role as AppRole,
         memberStatus: r.memberStatus,
       });
@@ -250,8 +250,8 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export type NewOrganization = {
-  organizationId: string;
+export type NewStore = {
+  storeId: string;
   slug: string;
   adminEmail: string;
   invitationId: string;
@@ -269,12 +269,12 @@ export type NewOrganization = {
  * invitee sets their own name and password on accept
  * (docs/adr/0005-store-as-sole-tenant.md §5/§6).
  */
-export async function createOrganization(input: {
-  organizationName: string;
+export async function createStore(input: {
+  storeName: string;
   adminEmail: string;
   invitedById: string;
-}): Promise<NewOrganization> {
-  const name = input.organizationName.trim();
+}): Promise<NewStore> {
+  const name = input.storeName.trim();
   const adminEmail = input.adminEmail.trim().toLowerCase();
 
   if (!name) throw new ServiceError("Store name is required.");
@@ -310,7 +310,7 @@ export async function createOrganization(input: {
       .returning({ id: invitations.id });
 
     return {
-      organizationId: org.id,
+      storeId: org.id,
       slug: org.slug,
       adminEmail,
       invitationId: invitation.id,
@@ -318,21 +318,21 @@ export async function createOrganization(input: {
   });
 }
 
-export async function setOrganizationStatus(input: {
-  organizationId: string;
+export async function setStoreStatus(input: {
+  storeId: string;
   status: "active" | "suspended";
 }): Promise<void> {
   await db
     .update(organizations)
     .set({ status: input.status })
-    .where(eq(organizations.id, input.organizationId));
+    .where(eq(organizations.id, input.storeId));
 }
 
 export type ResentInvitation = {
   invitationId: string;
   email: string;
   role: AppRole;
-  organizationName: string;
+  storeName: string;
 };
 
 /**
@@ -342,7 +342,7 @@ export type ResentInvitation = {
  * tenant Admin's resend. Can't reuse auth/index.ts's `inviteToOrganization`
  * for this: it infers *which* Organization from the caller's own active
  * membership (`auth.api.createInvitation`), and a Platform Admin has none —
- * the same reason `createOrganization` above writes its row directly.
+ * the same reason `createStore` above writes its row directly.
  */
 export async function resendPlatformInvitation(
   invitationId: string,
@@ -379,7 +379,7 @@ export async function resendPlatformInvitation(
       invitationId: fresh.id,
       email: pending.email,
       role: (pending.role ?? "admin") as AppRole,
-      organizationName: org?.name ?? "",
+      storeName: org?.name ?? "",
     };
   });
 }
