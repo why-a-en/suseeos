@@ -6,18 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { loginAction } from "./actions";
 
-// Seeded development accounts — the scenario matrix for Organizations and
-// Stores. Run `pnpm tsx scripts/seed-test-data.mts` to (re)create them; the
-// script's header documents each one. This block is stripped from
-// production builds.
+// Seeded development accounts — the scenario matrix for Stores (ADR-0005:
+// Store is the tenant, one `organizations` row each). Run
+// `pnpm tsx scripts/seed-test-data.mts` to (re)create them; the script's
+// header documents each one. This block is stripped from production builds.
 const TEST_ACCOUNTS = [
-  { email: "admin@test.local", password: "password123", note: "Admin · 2 stores → picks on login, switcher in Settings" },
-  { email: "cs@test.local", password: "password123", note: "Support · 1 store → straight in, no switcher" },
-  { email: "packer@test.local", password: "password123", note: "Support · Warehouse only → lands on the non-default store" },
-  { email: "supplier@test.local", password: "password123", note: "Supplier · 2 orgs, 2 stores → both switchers" },
+  { email: "admin@test.local", password: "password123", note: "Admin · Test Store" },
+  { email: "cs@test.local", password: "password123", note: "Support · Test Store" },
   { email: "cs2@test.local", password: "password123", note: "Support · Second Reseller" },
-  { email: "founder@test.local", password: "password123", note: "Admin · org has no store → /onboarding" },
-  { email: "orphan@test.local", password: "password123", note: "Support · no store granted → /select-store dead-end" },
+  { email: "supplier@test.local", password: "password123", note: "Supplier · both Stores → the switcher in Settings" },
 ] as const;
 
 export function LoginForm() {
@@ -51,7 +48,7 @@ export function LoginForm() {
           <p className="font-ui text-small-strong text-text-strong">Test accounts</p>
           <p className="mt-0.5 font-ui text-small text-text-faint">
             All <code className="font-mono text-code">password123</code>. Each covers a
-            different Organization / Store scenario.
+            different Store scenario.
           </p>
           <ul className="mt-3 grid gap-2.5">
             {TEST_ACCOUNTS.map((account) => (

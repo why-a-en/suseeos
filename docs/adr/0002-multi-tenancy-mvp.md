@@ -141,7 +141,9 @@ the schema, so postponing them costs nothing.
 > route trees redirect each other's users away. The operator provisions
 > client Organizations + their first Admin (the in-app `pnpm org:create`),
 > suspends them via `organizations.status`, and steps into one by
-> impersonating. `PLATFORM_ADMIN_USER_IDS` stays the single source of truth.
+> impersonating. `PLATFORM_ADMIN_USER_IDS` stays the single source of truth
+> (superseded by [ADR-0007](./0007-platform-admin-role.md) — it's
+> `users.role` now, not an env var).
 > Still deferred: billing, usage, and any *tenant-facing* onboarding.
 
 Two known gaps are recorded rather than fixed:

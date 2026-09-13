@@ -10,7 +10,6 @@ import {
   orders,
   organizations,
   products,
-  stores,
   users,
 } from "@/db/schema";
 import { MAX_OPEN_DRAFTS_PER_USER, cancelOrderItem, deleteDraft, saveOrder } from "@/services/orders";
@@ -23,8 +22,6 @@ const TAG = `orders-${Date.now()}`;
 
 let orgId: string;
 let otherOrgId: string;
-let storeId: string;
-let otherStoreId: string;
 let userId: string;
 let customerId: string;
 let productId: string;
@@ -32,15 +29,12 @@ let optionId: string;
 
 /** Runs `fn` with a service context for `org`, inside a scoped transaction. */
 function asOrg<T>(org: string, fn: (ctx: ServiceContext) => Promise<T>) {
-  const sid = org === orgId ? storeId : otherStoreId;
-  return withOrganizationScope(org, (tx) => fn({ organizationId: org, storeId: sid, userId, tx }));
+  return withOrganizationScope(org, (tx) => fn({ organizationId: org, userId, tx }));
 }
 
 /** Same, in the main Organization but acting as a different person. */
 function asUser<T>(actor: string, fn: (ctx: ServiceContext) => Promise<T>) {
-  return withOrganizationScope(orgId, (tx) =>
-    fn({ organizationId: orgId, storeId, userId: actor, tx }),
-  );
+  return withOrganizationScope(orgId, (tx) => fn({ organizationId: orgId, userId: actor, tx }));
 }
 
 const extraUsers: string[] = [];
@@ -65,22 +59,6 @@ beforeAll(async () => {
   orgId = org.id;
   otherOrgId = other.id;
 
-  // `stores` is RLS-scoped — insert each through its own org's scope.
-  storeId = await withOrganizationScope(orgId, async (tx) => {
-    const [row] = await tx
-      .insert(stores)
-      .values({ organizationId: orgId, name: `${TAG}-store` })
-      .returning({ id: stores.id });
-    return row.id;
-  });
-  otherStoreId = await withOrganizationScope(otherOrgId, async (tx) => {
-    const [row] = await tx
-      .insert(stores)
-      .values({ organizationId: otherOrgId, name: `${TAG}-other-store` })
-      .returning({ id: stores.id });
-    return row.id;
-  });
-
   const [user] = await db
     .insert(users)
     .values({ name: `${TAG} agent`, email: `${TAG}@orders.test` })
@@ -90,7 +68,7 @@ beforeAll(async () => {
   await asOrg(orgId, async ({ tx }) => {
     const [customer] = await tx
       .insert(customers)
-      .values({ organizationId: orgId, storeId, name: `${TAG}-customer`, phone: "0900000000" })
+      .values({ organizationId: orgId, name: `${TAG}-customer`, phone: "0900000000" })
       .returning({ id: customers.id });
     customerId = customer.id;
 
@@ -143,7 +121,6 @@ afterAll(async () => {
       await tx.delete(modifiers).where(eq(modifiers.organizationId, org));
       await tx.delete(products).where(eq(products.organizationId, org));
       await tx.delete(customers).where(eq(customers.organizationId, org));
-      await tx.delete(stores).where(eq(stores.organizationId, org));
     });
   }
   await db.delete(users).where(inArray(users.id, [userId, ...extraUsers]));
@@ -170,6 +147,10 @@ describe("saveOrder", () => {
     // Placing stamps placed_at — that is what releases items to the queue.
     expect(order.placedAt).not.toBeNull();
     expect(order.createdBy).toBe(userId);
+    // Random, 6 characters from the misread-proof alphabet (services/
+    // password.ts's READABLE_ALPHABET), drawn by pickOrderNumber — not the
+    // sequential 1, 2, 3 a plain row count would give.
+    expect(order.orderNumber).toMatch(/^[abcdefghjkmnpqrtuvwxyz2346789]{6}$/);
 
     const items = await asOrg(orgId, ({ tx }) =>
       tx.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
@@ -185,6 +166,28 @@ describe("saveOrder", () => {
         .where(eq(orderItemModifiers.orderItemId, items[0].id)),
     );
     expect(mods.map((m) => m.modifierOptionId)).toEqual([optionId]);
+  });
+
+  it("gives two orders in the same Organization different order numbers", async () => {
+    const first = await asOrg(orgId, (ctx) => saveOrder(ctx, { customerId, place: false, items: [] }));
+    const second = await asOrg(orgId, (ctx) => saveOrder(ctx, { customerId, place: false, items: [] }));
+
+    try {
+      const rows = await asOrg(orgId, ({ tx }) =>
+        tx.select({ id: orders.id, orderNumber: orders.orderNumber }).from(orders).where(
+          inArray(orders.id, [first.orderId, second.orderId]),
+        ),
+      );
+      const numbers = rows.map((r) => r.orderNumber);
+      expect(new Set(numbers).size).toBe(2);
+    } finally {
+      // Both are drafts, and this file's other tests share this Org/user —
+      // left in place they'd count toward MAX_OPEN_DRAFTS_PER_USER for
+      // every test after this one.
+      await asOrg(orgId, ({ tx }) =>
+        tx.delete(orders).where(inArray(orders.id, [first.orderId, second.orderId])),
+      );
+    }
   });
 
   it("leaves placed_at null for a draft", async () => {

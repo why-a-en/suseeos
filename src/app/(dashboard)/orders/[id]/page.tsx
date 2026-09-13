@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { withCurrentStore } from "@/lib/tenancy";
+import { withCurrentOrganization } from "@/lib/tenancy";
 import { isUuid } from "@/lib/uuid";
+import { cn } from "@/lib/utils";
 import {
   orders,
   orderItems,
@@ -9,17 +10,22 @@ import {
   modifierOptions,
   products,
   customers,
+  users,
 } from "@/db/schema";
 import { Screen, ScrollBody } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { Badge, type OrderItemStatus } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cancelOrderItemAction } from "../actions";
-
-const CANCELLABLE_STATUSES = ["pending", "purchased", "received", "packed"] as const;
 
 function display(status: string): OrderItemStatus {
   return (status.charAt(0).toUpperCase() + status.slice(1)) as OrderItemStatus;
+}
+
+/** A line's extended price, formatted, or "—" when the product has no set
+ *  price. No currency suffix — the total below carries it once. Mirrors
+ *  new-order-wizard.tsx's lineAmount/formatPrice. */
+function lineAmount(productPrice: string | null, quantity: number): string {
+  return productPrice == null ? "—" : (Number(productPrice) * quantity).toLocaleString();
 }
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,23 +36,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   // "invalid input syntax for type uuid" error instead of a normal 404.
   if (!isUuid(orderId)) notFound();
 
-  const data = await withCurrentStore(async ({ organizationId, storeId, tx }) => {
-    // storeId in the WHERE — an order deep-link from another Store in the
-    // same Organization 404s here rather than rendering, the same way a
-    // resumed draft can't be moved (see saveOrder's own comment): the
-    // recovery is switching Stores in Settings, not silently crossing one.
+  const data = await withCurrentOrganization(async ({ organizationId, tx }) => {
     const [order] = await tx
       .select({
         id: orders.id,
+        orderNumber: orders.orderNumber,
         notes: orders.notes,
         createdAt: orders.createdAt,
+        placedAt: orders.placedAt,
         customerName: customers.name,
         customerPhone: customers.phone,
         customerAddress: customers.address,
+        creatorName: users.name,
       })
       .from(orders)
       .innerJoin(customers, eq(customers.id, orders.customerId))
-      .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId), eq(orders.storeId, storeId)))
+      .innerJoin(users, eq(users.id, orders.createdBy))
+      .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)))
       .limit(1);
     if (!order) return null;
 
@@ -56,6 +62,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         productName: products.name,
         quantity: orderItems.quantity,
         status: orderItems.status,
+        price: products.price,
       })
       .from(orderItems)
       .innerJoin(products, eq(products.id, orderItems.productId))
@@ -88,50 +95,96 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   if (!data) notFound();
   const { order, items } = data;
 
+  // Same accounting as the wizard's docket (new-order-wizard.tsx): a null
+  // price can't be assumed to be 0, so it's tracked separately rather than
+  // silently under-totaling. Cancelled items are left out — they're not
+  // being fulfilled, so they're not part of what the Customer owes.
+  let priceTotal = 0;
+  let hasUnpricedItem = false;
+  for (const item of items) {
+    if (item.status === "cancelled") continue;
+    if (item.price == null) hasUnpricedItem = true;
+    else priceTotal += Number(item.price) * item.quantity;
+  }
+  const showAmounts = priceTotal > 0;
+  const totalText = `${priceTotal.toLocaleString()} MMK${hasUnpricedItem ? "+" : ""}`;
+
   return (
     <Screen>
-      {/* No "add item" action: an Order is closed to new Items once placed
-          (see the note above cancelOrderItemAction in ../actions.ts). What
-          can still change here is cancelling an Item that can't be
-          fulfilled. */}
-      <TopBar title={order.customerName} eyebrow={order.customerPhone} backHref="/orders" />
+      {/* Read-only — no "add item" (an Order is closed to new Items once
+          placed, see saveOrder's own comment) and no cancel action either:
+          this page is the record of what happened, not where you act on an
+          item's lifecycle. That happens from the Purchase Queue ("Can't
+          source") or Parcels (its own Cancel), where the person actually
+          working that stage is looking at it. */}
+      {/* Order number as the eyebrow, customer name as the title — the
+          TopBar's normal two-line shape, not one line carrying both. The
+          phone number used to sit in the eyebrow instead, but that's
+          contact info, not identity; it's a labeled row below now, next to
+          the address. */}
+      <TopBar eyebrow={`#${order.orderNumber}`} title={order.customerName} backHref="/orders" />
       <ScrollBody>
         <div className="grid gap-4 px-5 py-4">
-          {order.customerAddress && <p className="font-ui text-small text-text-muted">{order.customerAddress}</p>}
+          <div className="flex items-center gap-2">
+            {/* Order-level state — the only one there is (ADR-0001): whether
+                it's been placed yet. Separate from each Item's own status
+                badge below, which is what a freshly-placed order's items
+                start as ("Pending") regardless of this. */}
+            <Badge tone={order.placedAt ? "accent" : "quiet"}>{order.placedAt ? "Placed" : "Draft"}</Badge>
+            <span className="font-ui text-small text-text-faint">by {order.creatorName}</span>
+          </div>
+
+          {/* Same labeled-row shape as Parcels' item sheet (parcels-view.tsx)
+              — a mono micro-label left, the value right-aligned. */}
+          <div className="grid gap-2">
+            <div className="flex justify-between gap-3 border-b border-line-hairline pb-2">
+              <span className="font-mono text-label tracking-label uppercase text-text-faint">Phone</span>
+              <span className="text-right font-ui text-small text-text-body">{order.customerPhone}</span>
+            </div>
+            {order.customerAddress && (
+              <div className="flex justify-between gap-3 border-b border-line-hairline pb-2">
+                <span className="font-mono text-label tracking-label uppercase text-text-faint">Address</span>
+                <span className="text-right font-ui text-small text-text-body">{order.customerAddress}</span>
+              </div>
+            )}
+          </div>
           {order.notes && <p className="font-ui text-small text-text-body">{order.notes}</p>}
 
           <section className="grid gap-2">
             <span className="font-mono text-label tracking-label uppercase text-text-faint">Items</span>
 
-            {/* Reachable only for an order whose items were all cancelled —
-                items can't be added back here, so the copy doesn't invite
-                it. */}
+            {/* Reachable only for an order whose items were all cancelled
+                elsewhere (Purchase Queue / Parcels) — nothing on this page
+                does that, so the copy doesn't invite it. */}
             {items.length === 0 ? (
               <EmptyState icon="package" title="Nothing on this order." body="Every item on it was cancelled." />
             ) : (
-              items.map((item) => (
-                <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-line-hairline p-3">
-                  <div>
-                    <p className="font-ui text-body-strong text-text-strong">{item.productName}</p>
-                    <p className="mt-0.5 font-ui text-small text-text-muted">
-                      {item.modifiers.length > 0 ? `${item.modifiers.join(", ")} · ` : ""}
-                      qty {item.quantity}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
+              <>
+                {items.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-line-hairline p-3">
+                    <div>
+                      <p className="font-ui text-body-strong text-text-strong">{item.productName}</p>
+                      <p className="mt-0.5 font-ui text-small text-text-muted">
+                        {item.modifiers.length > 0 ? `${item.modifiers.join(", ")} · ` : ""}
+                        qty {item.quantity}
+                        {showAmounts && item.status !== "cancelled" ? ` · ${lineAmount(item.price, item.quantity)}` : ""}
+                      </p>
+                    </div>
                     <Badge status={display(item.status)} size="sm" />
-                    {(CANCELLABLE_STATUSES as readonly string[]).includes(item.status) && (
-                      <form action={cancelOrderItemAction}>
-                        <input type="hidden" name="orderItemId" value={item.id} />
-                        <input type="hidden" name="orderId" value={order.id} />
-                        <button type="submit" className="cursor-pointer border-none bg-transparent font-ui text-small text-danger underline underline-offset-2 outline-none transition-transform duration-instant ease-standard active:scale-95 focus-visible:shadow-[var(--focus-ring)]">
-                          Cancel
-                        </button>
-                      </form>
-                    )}
                   </div>
+                ))}
+                <div className="flex items-baseline justify-between pt-1">
+                  <span className="font-mono text-label tracking-label uppercase text-text-faint">Total</span>
+                  <span
+                    className={cn(
+                      "font-ui text-body-strong [font-variant-numeric:tabular-nums]",
+                      showAmounts ? "text-text-strong" : "text-text-faint",
+                    )}
+                  >
+                    {showAmounts ? totalText : "Not priced yet"}
+                  </span>
                 </div>
-              ))
+              </>
             )}
           </section>
         </div>

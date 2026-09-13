@@ -1,15 +1,19 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireAnySession } from "@/lib/auth";
 import { Logo } from "@/components/ui/logo";
 import { ChangePasswordForm } from "./change-password-form";
 
-// Deliberately in the (auth) group rather than under (dashboard). The
-// forced-change redirect lives in the dashboard layout, so a screen inside
-// that layout would redirect to itself forever. Keeping it out of the group
-// makes the loop structurally impossible instead of relying on a path check.
+// Deliberately in the (auth) group rather than under (dashboard) or
+// platform/. Both of those layouts carry the forced-change redirect for
+// their own kind of session, so a screen inside either would redirect to
+// itself forever. Keeping it out of both groups makes the loop structurally
+// impossible instead of relying on a path check — and lets this one screen
+// serve a tenant user and a platform operator alike (requireAnySession(),
+// not requireUser()); nothing about changing your own password differs
+// between the two.
 export default async function ChangePasswordPage() {
-  const user = await requireUser();
-  const forced = user.mustChangePassword;
+  const session = await requireAnySession();
+  const forced = session.user.mustChangePassword;
 
   return (
     <main className="ds-grain-surface flex min-h-full flex-1 items-center justify-center bg-surface-page p-4">
@@ -26,13 +30,15 @@ export default async function ChangePasswordPage() {
         <ChangePasswordForm forced={forced} />
 
         {/* No way out while forced — that is the point. Otherwise this is an
-            ordinary settings screen and should be leaveable. */}
+            ordinary settings screen and should be leaveable, back to
+            whichever surface this session belongs to — a platform operator
+            has no /settings. */}
         {!forced && (
           <Link
-            href="/settings"
+            href={session.kind === "platform" ? "/platform" : "/settings"}
             className="ds-nav-link block text-center font-ui text-small text-text-muted"
           >
-            Back to Settings
+            {session.kind === "platform" ? "Back to Operator" : "Back to Settings"}
           </Link>
         )}
       </div>

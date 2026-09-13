@@ -8,7 +8,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { SearchField } from "@/components/ui/search-field";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
-import { StoreScope, type StoreOption } from "./store-scope";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Row } from "@/components/ui/row";
 import { Button } from "@/components/ui/button";
@@ -22,8 +21,9 @@ import type { OrdersCursor, OrdersFilters } from "./query";
 // span several Items in different stages at once. The one real order-level
 // state is whether it's been placed yet (orders.placedAt), so that's what
 // this filters by. The list itself shows each order's date rather than a
-// Draft/Placed chip — the filter above already answers that question, and
-// the per-item summary line answers the more useful one.
+// Draft/Placed chip — the filter above already answers that question. Item
+// status isn't shown here at all — that's what the order detail page is
+// for; the list's own subtitle is who logged it instead.
 type OrderStatus = "draft" | "placed";
 
 const STATUS_SEGMENTS: { value: OrderStatus; label: string }[] = [
@@ -37,24 +37,20 @@ const DEFAULT_STATUS: OrderStatus = "placed";
 
 export interface OrderRowData {
   id: string;
+  /** Random, unique per Store (services/orders.ts) — what's actually said
+   *  aloud or typed to look an order up, never the id above. */
+  orderNumber: string;
   customerName: string;
   /** Preformatted on the server — see formatOrderDate in page.tsx. */
   createdAtLabel: string;
-  itemStatuses: string[];
+  /** The Support Agent who logged it (orders.created_by) — the list's
+   *  subtitle now that item status isn't shown here. */
+  creatorName: string;
   /** True when the order hasn't been placed yet (placed_at is null) —
    *  tapping the row resumes the wizard (/orders/new?draft=<id>) instead
    *  of opening the detail page. The wizard fetches the resume payload
-   *  itself; the list only needs this flag and the item count. */
+   *  itself. */
   isDraft: boolean;
-}
-
-function summarize(statuses: string[]): string {
-  if (statuses.length === 0) return "no items yet";
-  const counts = new Map<string, number>();
-  for (const s of statuses) counts.set(s, (counts.get(s) ?? 0) + 1);
-  return Array.from(counts.entries())
-    .map(([status, count]) => `${count} ${status}`)
-    .join(", ");
 }
 
 export function OrdersView({
@@ -63,7 +59,6 @@ export function OrdersView({
   filters,
   canCreate,
   window: dateWindow,
-  stores,
 }: {
   /** The first page, rendered by the route. Later pages are appended below. */
   orders: OrderRowData[];
@@ -73,9 +68,6 @@ export function OrdersView({
   filters: OrdersFilters;
   canCreate: boolean;
   window: DateWindow;
-  /** Every Store this member is granted. The Store filter renders only when
-   *  there are 2+ — one Store is the whole log. */
-  stores: StoreOption[];
 }) {
   // `shallow: false` on both, which is the change that made search correct.
   // These used to be client-only filters over whatever the fixed 50-row cap
@@ -131,7 +123,6 @@ export function OrdersView({
 
   const rangeLabel = dateWindowSentence(dateWindow);
   const dateFiltered = dateWindow.custom || dateWindow.range !== "all";
-  const storeName = stores.find((s) => s.id === filters.storeId)?.name ?? null;
 
   // No client-side filtering left — every row here already matched in SQL.
   const filtered = [...orders, ...appended];
@@ -141,11 +132,6 @@ export function OrdersView({
       <TopBar
         brand
         title="Orders"
-        // The Store scope (which counter's log this is — scope, not a filter,
-        // so it's out of the filter row) for a member who works in 2+ Stores.
-        // The list itself carries the count — its "That's all N" footer, and
-        // "Load more" when there's more.
-        subtitle={stores.length > 1 ? <StoreScope stores={stores} /> : undefined}
         right={
           canCreate ? <IconButton icon="plus" label="New order" href="/orders/new" size="icon-sm" /> : null
         }
@@ -173,28 +159,26 @@ export function OrdersView({
         {filtered.length === 0 ? (
           <EmptyState
             icon="receipt"
-            title={q || dateFiltered || status === "draft" || storeName ? "No match." : "No orders yet."}
+            title={q || dateFiltered || status === "draft" ? "No match." : "No orders yet."}
             body={
               q
                 ? `No orders under that name${rangeLabel ? " " + rangeLabel : ""}.`
                 : status === "draft"
-                  ? `No draft orders${storeName ? ` at ${storeName}` : ""}${rangeLabel ? " " + rangeLabel : ""}.`
-                  : storeName
-                    ? `No orders at ${storeName}${rangeLabel ? " " + rangeLabel : ""}.`
-                    : rangeLabel
-                      ? `No orders ${rangeLabel}.`
-                      : "Log the first one from a customer chat."
+                  ? `No draft orders${rangeLabel ? " " + rangeLabel : ""}.`
+                  : rangeLabel
+                    ? `No orders ${rangeLabel}.`
+                    : "Log the first one from a customer chat."
             }
           />
         ) : (
           filtered.map((order) => (
             <Row key={order.id} href={order.isDraft ? `/orders/new?draft=${order.id}` : `/orders/${order.id}`} className="min-h-[62px]">
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-ui text-body-strong text-text-strong">{order.customerName}</span>
+                <span className="block truncate font-ui text-body-strong text-text-strong">
+                  <span className="text-text-faint">#{order.orderNumber}</span> {order.customerName}
+                </span>
                 <span className="mt-0.5 block truncate font-ui text-small text-text-faint">
-                  {order.isDraft
-                    ? `Draft — ${order.itemStatuses.length} item${order.itemStatuses.length === 1 ? "" : "s"}`
-                    : summarize(order.itemStatuses)}
+                  By {order.creatorName}
                 </span>
               </span>
               {/* When the order was logged, not what state it's in — the

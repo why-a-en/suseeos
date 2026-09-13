@@ -6,7 +6,10 @@ export interface CredentialsEmailProps {
   to: string;
   name: string;
   temporaryPassword: string;
-  organizationName: string;
+  /** Omitted for a Platform Admin reset — they have no Store to name
+   *  (docs/adr/0007-platform-admin-role.md); the lead sentence drops the
+   *  "for X" clause entirely rather than naming one that doesn't apply. */
+  organizationName?: string;
   loginUrl: string;
 }
 
@@ -36,8 +39,14 @@ export function CredentialsEmail({
         Password reset
       </Heading>
       <Text style={{ margin: "0 0 20px", fontSize: 15, lineHeight: "22px", color: brand.body }}>
-        Hi {name}, an administrator reset your SuSeeOS password for{" "}
-        <strong>{organizationName}</strong>.
+        {organizationName ? (
+          <>
+            Hi {name}, an administrator reset your SuSeeOS password for{" "}
+            <strong>{organizationName}</strong>.
+          </>
+        ) : (
+          <>Hi {name}, a fellow operator has reset your SuSeeOS password.</>
+        )}
       </Text>
 
       <table

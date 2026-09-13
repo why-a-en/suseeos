@@ -27,6 +27,8 @@ export async function changePasswordAction(
   if (!result.ok) return { error: result.error };
 
   revalidatePath("/", "layout");
-  // Outside any try/catch — redirect signals by throwing.
-  redirect("/");
+  // Outside any try/catch — redirect signals by throwing. Lands a platform
+  // operator back at /platform, not the tenant app they have no membership
+  // in.
+  redirect(result.kind === "platform" ? "/platform" : "/");
 }

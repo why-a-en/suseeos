@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, unstable_rethrow } from "next/navigation";
 import { Screen, ScrollBody, Foot, Toolbar } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { Button } from "@/components/ui/button";
@@ -412,6 +412,11 @@ export function NewOrderWizard({
       try {
         const created = await createCustomerAction({ name: newCustomerName, phone: newCustomerPhone, address: newCustomerAddress });
         setCustomer({ id: created.id, name: created.name, phone: created.phone, address: newCustomerAddress });
+        // The create sub-step's job is done — close it the same way its own
+        // "Back" button does, so stepping back to Customer later (Previous,
+        // or a progress-indicator jump) lands on the search view with this
+        // customer selected, not the create form again.
+        setAddingCustomer(false);
         setStep("items");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't create that customer.");
@@ -572,6 +577,10 @@ export function NewOrderWizard({
       try {
         await deleteDraftAction(resume.orderId); // redirects to /orders
       } catch (e) {
+        // Same as handleSave above — deleteDraftAction's redirect() on
+        // success has to be let through, not treated as the failure it
+        // otherwise looks like.
+        unstable_rethrow(e);
         setError(e instanceof Error ? e.message : "Couldn't delete that draft.");
       }
     });
@@ -617,6 +626,12 @@ export function NewOrderWizard({
         void result;
         router.push("/orders");
       } catch (e) {
+        // saveOrderAction's redirect() is what lands here on a successful
+        // place — it signals by throwing. Without this, that throw looked
+        // like a real failure: the ErrorDialog below flashed open on a
+        // cryptic message for the instant before Next's own redirect (which
+        // fires independently of this catch) navigated it away underneath.
+        unstable_rethrow(e);
         setError(e instanceof Error ? e.message : "Couldn't save the order.");
       }
     });
@@ -952,7 +967,7 @@ export function NewOrderWizard({
           </button>
         ) : null}
         <div className="flex gap-2">
-          <Button variant="secondary" icon="arrow-left" onClick={() => (resume ? leaveWizard("/orders") : setStep("customer"))}>
+          <Button variant="secondary" icon="arrow-left" onClick={() => (resume ? leaveWizard("/orders") : jumpToStep("customer"))}>
             Previous
           </Button>
           <Button full iconAfter="chevron-right" disabled={!totalItemCount} onClick={() => setStep("review")} className="flex-1 rounded-full shadow-raised">

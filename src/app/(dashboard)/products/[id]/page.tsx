@@ -12,17 +12,18 @@ import { Screen, ScrollBody } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { TagInput } from "@/components/ui/tag-input";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Thumb } from "@/components/ui/thumb";
+import { ImageUploadField } from "@/components/image-upload-field";
 import {
   attachModifierOptionsAction,
-  createModifierAction,
   detachModifierOptionAction,
   setProductStatusAction,
+  updateProductAction,
 } from "../actions";
+import { AddModifierForm } from "../add-modifier-form";
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -102,26 +103,44 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <div className="grid gap-4 px-5 py-4">
           <div className="flex items-center gap-2">
             {product.status === "archived" ? <Badge tone="quiet">Archived</Badge> : <Badge tone="accent">Active</Badge>}
-            {product.price ? <span className="font-ui text-body-strong text-text-strong">{Number(product.price).toLocaleString()} MMK</span> : null}
           </div>
 
-          {images.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto">
-              {images.map((image) => (
-                <Thumb key={image.id} src={image.url} size={80} />
-              ))}
-            </div>
-          ) : (
-            <Thumb size={80} label="no photo" />
-          )}
+          <form action={updateProductAction} className="grid gap-4">
+            <input type="hidden" name="productId" value={product.id} />
+            <Field label="Name" required>
+              <Input name="name" icon="package" autoComplete="off" defaultValue={product.name} />
+            </Field>
+            <Field label="Description" required>
+              <Textarea name="description" rows={3} defaultValue={product.description} />
+            </Field>
+            <Field label="Price" required>
+              <Input
+                name="price"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                icon="coins"
+                suffix="MMK"
+                defaultValue={product.price ?? ""}
+              />
+            </Field>
+            <Field label="Images">
+              <ImageUploadField initialImages={images} />
+            </Field>
+            <Field label="Source URL" hint="Link to the exact Lazada/TikTok Shop listing.">
+              <Input name="sourceUrl" type="url" icon="link" defaultValue={product.sourceUrl ?? ""} placeholder="https://…" />
+            </Field>
+            {product.sourceUrl && (
+              <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="-mt-2 font-ui text-small-strong">
+                View current listing
+              </a>
+            )}
 
-          <p className="font-ui text-body text-text-body">{product.description}</p>
-
-          {product.sourceUrl && (
-            <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="font-ui text-small-strong">
-              View listing
-            </a>
-          )}
+            <Button full type="submit" icon="check">
+              Save changes
+            </Button>
+          </form>
 
           <section className="grid gap-3">
             <span className="font-mono text-label tracking-label uppercase text-text-faint">Modifiers</span>
@@ -166,21 +185,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               </div>
             ))}
 
-            <details className="rounded-md border border-line-hairline p-3">
-              <summary className="cursor-pointer font-ui text-small-strong text-text-strong">+ New modifier</summary>
-              <form action={createModifierAction} className="mt-3 grid gap-4">
-                <input type="hidden" name="productId" value={product.id} />
-                <Field label="Name" required hint="What varies — size, colour, material">
-                  <Input name="modifierName" icon="tag" autoComplete="off" placeholder="Colour" />
-                </Field>
-                <Field label="Options" required hint="Press Enter after each">
-                  <TagInput name="options" icon="list" placeholder="Black, White, Red" />
-                </Field>
-                <Button full type="submit" icon="check">
-                  Create and attach
-                </Button>
-              </form>
-            </details>
+            <AddModifierForm productId={product.id} />
           </section>
         </div>
       </ScrollBody>

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { withCurrentOrganization, withCurrentStore } from "@/lib/tenancy";
+import { withCurrentOrganization } from "@/lib/tenancy";
 import { createCustomer } from "@/services/customers";
 import { cancelOrderItem, deleteDraft, saveOrder, type SaveOrderInput } from "@/services/orders";
 import {
@@ -59,13 +59,13 @@ export async function createCustomerAction(input: {
   phone: string;
   address: string;
 }) {
-  const customer = await withCurrentStore((ctx) => createCustomer(ctx, input));
+  const customer = await withCurrentOrganization((ctx) => createCustomer(ctx, input));
   revalidatePath("/customers");
   return customer;
 }
 
 export async function saveOrderAction(input: SaveOrderInput): Promise<{ orderId: string }> {
-  const { orderId, placed } = await withCurrentStore((ctx) => saveOrder(ctx, input));
+  const { orderId, placed } = await withCurrentOrganization((ctx) => saveOrder(ctx, input));
 
   revalidatePath("/orders");
   // Draft items feed the Purchase Queue too (there's no placed_at gate on
@@ -73,13 +73,13 @@ export async function saveOrderAction(input: SaveOrderInput): Promise<{ orderId:
   // those views on every save, not only when placing.
   revalidatePath("/purchase-queue");
   revalidatePath("/parcels");
-  if (placed) redirect(`/orders/${orderId}`);
+  if (placed) redirect("/orders");
   return { orderId };
 }
 
 /** Deletes a draft order (see deleteDraft — pending/cancelled items only). */
 export async function deleteDraftAction(orderId: string): Promise<void> {
-  await withCurrentStore((ctx) => deleteDraft(ctx, { orderId }));
+  await withCurrentOrganization((ctx) => deleteDraft(ctx, { orderId }));
   revalidatePath("/orders");
   revalidatePath("/purchase-queue");
   revalidatePath("/parcels");
@@ -95,12 +95,8 @@ export async function deleteDraftAction(orderId: string): Promise<void> {
  * request rather than something that quietly grows after Purchasing has
  * already acted on it.
  */
-export async function cancelOrderItemAction(formData: FormData) {
-  const orderItemId = String(formData.get("orderItemId") ?? "");
-  const orderId = String(formData.get("orderId") ?? "");
-  const reason = String(formData.get("reason") ?? "");
-
-  await withCurrentOrganization((ctx) => cancelOrderItem(ctx, { orderItemId, reason }));
+export async function cancelOrderItemAction(orderItemId: string, orderId: string) {
+  await withCurrentOrganization((ctx) => cancelOrderItem(ctx, { orderItemId }));
 
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/purchase-queue");

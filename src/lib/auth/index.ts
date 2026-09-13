@@ -2,22 +2,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db, withOrganizationScope } from "@/db/client";
-import {
-  accounts,
-  impersonationEvents,
-  invitations,
-  memberStores,
-  members,
-  organizations,
-  sessions,
-  stores,
-  users,
-} from "@/db/schema";
+import { accounts, impersonationEvents, invitations, members, organizations, users } from "@/db/schema";
 import { auth } from "./config";
 import { hashPassword } from "./hash";
 import { isPlatformAdmin } from "./platform-admins";
 
-export { isPlatformAdmin } from "./platform-admins";
+export { isPlatformAdmin, PLATFORM_ADMIN_ROLE } from "./platform-admins";
 
 // The boundary between better-auth and the rest of the app. Feature code
 // imports from here — never from ./config — so swapping the auth library
@@ -33,14 +23,15 @@ export { isPlatformAdmin } from "./platform-admins";
 // - AppRole "admin" — a *tenant* role. The reseller's own administrator:
 //   manages their staff, sees their reports. Scoped to one Organization
 //   like any member, with no power outside it.
-// - PLATFORM_ADMIN_USER_IDS — *platform* operators. Us. A platform operator
-//   has NO tenant footprint (no `members` row, no Organization) and lives
-//   only under `/platform`; `resolveSession()` returns a `SessionUser` XOR a
-//   `PlatformUser`, never both. They reach a client's data by impersonating.
+// - users.role = PLATFORM_ADMIN_ROLE — *platform* operators. Us. A platform
+//   operator has NO tenant footprint (no `members` row, no Organization) and
+//   lives only under `/platform`; `resolveSession()` returns a `SessionUser`
+//   XOR a `PlatformUser`, never both. They reach a client's data by
+//   impersonating.
 //
-// A tenant user can never become a platform operator: the allowlist is the
-// single source of truth, with no in-app path to it, so a database
-// compromise can't grant it either.
+// A tenant user can never become a platform operator through anything this
+// app exposes: nothing in its own server actions ever writes users.role to
+// PLATFORM_ADMIN_ROLE. See docs/adr/0007-platform-admin-role.md.
 export type { AppRole } from "@/services/types";
 import type { AppRole } from "@/services/types";
 
@@ -52,15 +43,9 @@ export type SessionUser = {
   id: string;
   name: string;
   email: string;
-  /** The *active* Organization, from the session — not a property of the user. */
+  /** The *active* Organization, from the session — not a property of the
+   *  user. Also the active Store — ADR-0005 Phase 3 collapsed the two. */
   organizationId: string;
-  /**
-   * The active Store — resolved fresh every call, never trusted from the
-   * session cookie (see sessions.active_store_id's comment). Null when this
-   * member has no store grant yet, or has 2+ and hasn't chosen — either way
-   * the caller must send them to pick one before anything store-scoped.
-   */
-  storeId: string | null;
   role: AppRole;
   /** Set while a platform admin is acting as this user. */
   impersonatedBy: string | null;
@@ -72,9 +57,10 @@ export type SessionUser = {
  * A signed-in **platform operator** — us, the people who run SuSeeOS. A
  * platform operator has NO tenant footprint: no `members` row, no
  * Organization, no tenant role. They live only under `/platform`, and reach
- * a client's data by impersonating (audited). The allowlist
- * (PLATFORM_ADMIN_USER_IDS) is the single source of truth, so there is no
- * in-app path to becoming one and a database compromise can't grant it.
+ * a client's data by impersonating (audited). `users.role = PLATFORM_ADMIN_
+ * ROLE` is the single source of truth, so there is no in-app path to
+ * becoming one and a database compromise can't grant it on its own — see
+ * ./platform-admins.ts.
  *
  * "Platform admin" and the tenant "Admin" role are two deliberately separate
  * axes — see the note at the top of this file.
@@ -83,9 +69,13 @@ export type PlatformUser = {
   id: string;
   name: string;
   email: string;
+  /** True until they replace a password another operator chose for them —
+   *  same meaning as SessionUser's, just read from a lightweight one-off
+   *  query rather than the session payload (see resolveSession()). */
+  mustChangePassword: boolean;
 };
 
-type ResolvedSession =
+export type ResolvedSession =
   | { kind: "platform"; user: PlatformUser }
   | { kind: "tenant"; user: SessionUser }
   | null;
@@ -110,10 +100,27 @@ async function resolveSession(): Promise<ResolvedSession> {
   // full stop, no tenant lookup. While impersonating, `session.user` is the
   // *target* tenant user, so that falls through to the tenant path below and
   // resolves as a normal (banner-flagged) tenant session.
-  if (isPlatformAdmin(session.user.id) && !impersonatedBy) {
+  //
+  // `session.user.role` rides along with the session lookup at zero extra
+  // cost — the admin plugin registers it, so it's in the same cached
+  // payload as .id/.name/.email, not a fresh query. mustChangePassword
+  // isn't part of that payload (it's ours, not the plugin's), so it costs
+  // one lightweight query — but only on this, the rare operator path, never
+  // on the tenant path every other request takes.
+  if (isPlatformAdmin(session.user.role) && !impersonatedBy) {
+    const [row] = await db
+      .select({ mustChangePassword: users.mustChangePassword })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1);
     return {
       kind: "platform",
-      user: { id: session.user.id, name: session.user.name, email: session.user.email },
+      user: {
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        mustChangePassword: row?.mustChangePassword ?? false,
+      },
     };
   }
 
@@ -124,21 +131,14 @@ async function resolveSession(): Promise<ResolvedSession> {
 
   const [row] = await db
     .select({
-      memberId: members.id,
       role: members.role,
       memberStatus: members.status,
       organizationStatus: organizations.status,
       mustChangePassword: users.mustChangePassword,
-      // Folded into this query rather than a second round trip. It's a
-      // constant-vs-column join, so it matches at most one row; the value
-      // is still re-validated against member_stores below before it's
-      // trusted.
-      sessionActiveStoreId: sessions.activeStoreId,
     })
     .from(members)
     .innerJoin(organizations, eq(organizations.id, members.organizationId))
     .innerJoin(users, eq(users.id, members.userId))
-    .leftJoin(sessions, eq(sessions.id, session.session.id))
     .where(
       and(eq(members.userId, session.user.id), eq(members.organizationId, organizationId)),
     )
@@ -160,7 +160,6 @@ async function resolveSession(): Promise<ResolvedSession> {
       name: session.user.name,
       email: session.user.email,
       organizationId,
-      storeId: await resolveActiveStoreId(row.memberId, row.sessionActiveStoreId),
       role: row.role as AppRole,
       impersonatedBy,
       mustChangePassword: row.mustChangePassword,
@@ -189,36 +188,6 @@ export async function signedInHome(): Promise<string | null> {
 }
 
 /**
- * The active Store, re-derived on every request rather than trusted from
- * the session — `member_stores` is the only source of truth for what this
- * member may work in.
- *
- * One extra query, on `member_stores` — RLS-exempt, alongside `members`
- * (see DATA_MODEL §5): this runs *before* the Organization scope this
- * member resolves to is established, so it cannot depend on it. `stores`
- * itself is never touched here — it IS RLS-scoped, and its name/status
- * aren't needed to pick an id.
- */
-async function resolveActiveStoreId(
-  memberId: string,
-  sessionActiveStoreId: string | null,
-): Promise<string | null> {
-  const granted = await db
-    .select({ storeId: memberStores.storeId })
-    .from(memberStores)
-    .where(eq(memberStores.memberId, memberId));
-  const grantedIds = granted.map((g) => g.storeId);
-
-  if (sessionActiveStoreId && grantedIds.includes(sessionActiveStoreId)) {
-    return sessionActiveStoreId;
-  }
-  // No stashed choice (or a stale one — a grant since revoked): only safe
-  // to resolve silently when there is exactly one candidate. 0 or 2+ means
-  // the caller has to be sent to pick.
-  return grantedIds.length === 1 ? grantedIds[0] : null;
-}
-
-/**
  * For tenant Server Components / layouts / actions. A platform operator who
  * reaches a tenant route is bounced to `/platform` — the two surfaces don't
  * overlap.
@@ -233,14 +202,28 @@ export async function requireUser(): Promise<SessionUser> {
 /**
  * For the platform console (`/platform`) — screens and actions only we, the
  * operator, may reach. A tenant user who reaches one is bounced to `/`.
- * Gated on the PLATFORM_ADMIN_USER_IDS allowlist via resolveSession(); there
- * is no in-app path to becoming a platform operator.
+ * Gated on `users.role = PLATFORM_ADMIN_ROLE` via resolveSession(); there is
+ * no in-app path to becoming a platform operator.
  */
 export async function requirePlatformUser(): Promise<PlatformUser> {
   const resolved = await resolveSession();
   if (!resolved) redirect("/login");
   if (resolved.kind === "tenant") redirect("/");
   return resolved.user;
+}
+
+/**
+ * Either kind of signed-in user, undistinguished — for the one screen that
+ * deliberately doesn't care which: the password-change page both a tenant
+ * user and a platform operator can be forced into. Redirects to `/login`
+ * only when there's no session at all; never redirects on kind, since
+ * routing *by* kind is exactly what requireUser()/requirePlatformUser()
+ * above are for.
+ */
+export async function requireAnySession(): Promise<Exclude<ResolvedSession, null>> {
+  const resolved = await resolveSession();
+  if (!resolved) redirect("/login");
+  return resolved;
 }
 
 /**
@@ -256,7 +239,10 @@ export async function requireAdmin(): Promise<SessionUser> {
 }
 
 /**
- * Replaces the caller's own password.
+ * Replaces the caller's own password — either kind of caller; a platform
+ * operator forced into a reset by another operator needs this exactly as
+ * much as a tenant user does (see /change-password, the one screen shared
+ * across both).
  *
  * `revokeOtherSessions` is deliberately on: someone changing their password
  * because they think another person knows it gains nothing if that person's
@@ -264,14 +250,16 @@ export async function requireAdmin(): Promise<SessionUser> {
  * from the forced-change redirect.
  *
  * Refused while impersonating — a platform admin acting as someone else must
- * not be able to set that person's password and lock them out.
+ * not be able to set that person's password and lock them out. (Structurally
+ * only reachable on the tenant side: an impersonated session always resolves
+ * `kind: "tenant"` — see resolveSession() above.)
  */
 export async function changeOwnPassword(
   currentPassword: string,
   newPassword: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const user = await requireUser();
-  if (user.impersonatedBy) {
+): Promise<{ ok: true; kind: "tenant" | "platform" } | { ok: false; error: string }> {
+  const session = await requireAnySession();
+  if (session.kind === "tenant" && session.user.impersonatedBy) {
     return { ok: false, error: "You can't change a password while impersonating." };
   }
 
@@ -287,9 +275,9 @@ export async function changeOwnPassword(
   await db
     .update(users)
     .set({ mustChangePassword: false, updatedAt: new Date() })
-    .where(eq(users.id, user.id));
+    .where(eq(users.id, session.user.id));
 
-  return { ok: true };
+  return { ok: true, kind: session.kind };
 }
 
 export type LoginResult = { ok: true } | { ok: false; error: string };
@@ -338,46 +326,6 @@ export async function setActiveOrganization(organizationId: string): Promise<voi
     body: { organizationId },
     headers: await headers(),
   });
-}
-
-/**
- * Re-stamps the session's active Store — the same idea as
- * setActiveOrganization, one level down, but a plain Drizzle write rather
- * than a better-auth API call: no plugin owns the concept of a Store, so
- * there is no `auth.api.setActiveStore` to call. Written straight to
- * `sessions.active_store_id` (see its own comment for why that is safe
- * despite bypassing better-auth's session machinery).
- *
- * The membership+grant check here is for a clean error message — the real
- * guard is resolveActiveStoreId() re-validating on every subsequent
- * request, so a stale or forged value can resolve to no store but never to
- * one this member isn't granted.
- */
-export async function setActiveStore(storeId: string): Promise<void> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
-
-  const organizationId = session.session.activeOrganizationId;
-  if (!organizationId) throw new Error("No active Organization.");
-
-  const [member] = await db
-    .select({ id: members.id })
-    .from(members)
-    .where(and(eq(members.userId, session.user.id), eq(members.organizationId, organizationId)))
-    .limit(1);
-  if (!member) throw new Error("Not a member of this Organization.");
-
-  const [grant] = await db
-    .select({ id: memberStores.id })
-    .from(memberStores)
-    .where(and(eq(memberStores.memberId, member.id), eq(memberStores.storeId, storeId)))
-    .limit(1);
-  if (!grant) throw new Error("You don't have access to that Store.");
-
-  await db
-    .update(sessions)
-    .set({ activeStoreId: storeId, updatedAt: new Date() })
-    .where(eq(sessions.id, session.session.id));
 }
 
 // --- Invitations ------------------------------------------------------------
@@ -478,9 +426,8 @@ export async function getInvitationForAccept(token: string): Promise<InvitationP
  *  throwing inside the callback rolls the whole transaction back, so an
  *  expired invitation never ends up marked accepted.
  *
- *  Grants every Store the Organization currently has: ADR-0004's per-Store
- *  grant picker isn't reachable from an invitation yet, and ADR-0005 removes
- *  the distinction in Phase 3 anyway.
+ *  The membership row IS the grant now — ADR-0005 Phase 3 removed the
+ *  separate per-Store grant (`member_stores`) this used to also write.
  *
  *  Does NOT touch any session — that used to be a raw `sessions` update
  *  here, and it was wrong: better-auth's session cookie *caches* a signed
@@ -493,9 +440,7 @@ async function finalizeAcceptance(invitationId: string, userId: string): Promise
   // `invitations` carries no RLS (it must be readable before the
   // Organization scope exists at all — see its schema comment), so this
   // plain read is only to learn *which* Organization to scope the rest of
-  // the transaction to. `stores` below is an ordinary RLS-scoped table —
-  // withOrganizationScope, not a bare db.transaction, is what sets
-  // app.organization_id for it.
+  // the transaction to.
   const [pending] = await db.select().from(invitations).where(eq(invitations.id, invitationId)).limit(1);
   if (!pending || pending.status !== "pending" || pending.expiresAt < new Date()) {
     throw new Error("This invitation is no longer valid.");
@@ -518,22 +463,6 @@ async function finalizeAcceptance(invitationId: string, userId: string): Promise
       .insert(members)
       .values({ organizationId: accepted.organizationId, userId, role: accepted.role ?? "support_agent" })
       .onConflictDoNothing();
-
-    const [member] = await tx
-      .select({ id: members.id })
-      .from(members)
-      .where(and(eq(members.organizationId, accepted.organizationId), eq(members.userId, userId)))
-      .limit(1);
-    const orgStores = await tx
-      .select({ id: stores.id })
-      .from(stores)
-      .where(eq(stores.organizationId, accepted.organizationId));
-    if (member && orgStores.length > 0) {
-      await tx
-        .insert(memberStores)
-        .values(orgStores.map((s) => ({ memberId: member.id, storeId: s.id })))
-        .onConflictDoNothing();
-    }
 
     return { organizationId: accepted.organizationId };
   });
@@ -614,13 +543,6 @@ export async function acceptInvitationAsCurrentUser(
   // hit the same stale-cookie-cache problem finalizeAcceptance's comment
   // describes. It also re-checks membership, which by now exists.
   await auth.api.setActiveOrganization({ body: { organizationId }, headers: requestHeaders });
-
-  // activeStoreId isn't a better-auth field (no plugin owns it — see
-  // setActiveStore's own comment), so switching Organization above doesn't
-  // clear it the way setActiveOrganization clears everything it does know
-  // about. Left alone, a Store from whichever Organization was active
-  // before would carry over into this one.
-  await db.update(sessions).set({ activeStoreId: null }).where(eq(sessions.token, session.session.token));
 
   return { organizationId };
 }

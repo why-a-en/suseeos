@@ -4,15 +4,20 @@ status: accepted
 
 # Admin-issued passwords, forced replacement, and no self-service recovery
 
-> **Amended by [ADR-0005](./0005-store-as-sole-tenant.md) and
-> [ADR-0006](./0006-transactional-email.md).** New accounts no longer get an
+> **Amended by [ADR-0005](./0005-store-as-sole-tenant.md),
+> [ADR-0006](./0006-transactional-email.md) and
+> [ADR-0007](./0007-platform-admin-role.md).** New accounts no longer get an
 > Admin-issued password at all — they join by **invitation** and set their
 > own (ADR-0005 §6). Everything below now applies only to a **password
 > reset**: an Admin still decides every reset, the password is still
 > generated-not-chosen, one-time, never stored readable, and forces
 > replacement on first sign-in — but it is **emailed** (deliverability-checked
 > first, never returned to the browser) rather than read off a screen. Still
-> **no public self-service reset**.
+> **no public self-service reset**. ADR-0007 extends this exact shape —
+> generated, one-time, emailed, forced replacement — to the one role it
+> never reached: a Platform Admin has no Admin above them to reset a
+> forgotten password, only a *fellow* operator, the same "someone other than
+> the person losing access" requirement this ADR already established.
 
 Staff accounts are created by their Organization's Admin, who sets the
 password and passes it on directly — there is no invitation email, and

@@ -48,7 +48,10 @@ export async function sendCredentialsEmail(input: {
   to: string;
   name: string;
   temporaryPassword: string;
-  organizationName: string;
+  /** Omitted for a Platform Admin reset — they have no Store to name
+   *  (docs/adr/0007-platform-admin-role.md); the lead sentence drops the
+   *  "for X" clause entirely rather than naming one that doesn't apply. */
+  organizationName?: string;
 }): Promise<void> {
   const { to, name, temporaryPassword, organizationName } = input;
   const loginUrl = `${appBaseURL()}/login`;

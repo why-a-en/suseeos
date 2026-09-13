@@ -3,8 +3,10 @@ import { randomInt } from "node:crypto";
 // Temporary passwords are read aloud or typed into a chat message by an
 // Admin, so the alphabet leaves out every character that gets misheard or
 // misread: no 0/O, no 1/l/I, no 5/S, no 8/B. What survives is unambiguous
-// over a phone line.
-const ALPHABET = "abcdefghjkmnpqrtuvwxyz2346789";
+// over a phone line. Exported because services/orders.ts's order numbers
+// are read aloud for exactly the same reason — one list of which
+// characters are ambiguous, not two that could drift apart.
+export const READABLE_ALPHABET = "abcdefghjkmnpqrtuvwxyz2346789";
 const LENGTH = 12;
 
 /**
@@ -20,6 +22,6 @@ const LENGTH = 12;
  */
 export function generateTemporaryPassword(): string {
   let out = "";
-  for (let i = 0; i < LENGTH; i++) out += ALPHABET[randomInt(ALPHABET.length)];
+  for (let i = 0; i < LENGTH; i++) out += READABLE_ALPHABET[randomInt(READABLE_ALPHABET.length)];
   return out;
 }
