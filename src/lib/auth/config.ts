@@ -2,7 +2,9 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins/organization";
 import { admin } from "better-auth/plugins/admin";
+import { defaultAc, userAc } from "better-auth/plugins/admin/access";
 import { createAccessControl } from "better-auth/plugins/access";
+import { PLATFORM_ADMIN_ROLE } from "./platform-admins";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -37,6 +39,18 @@ const orgAdminRole = orgAccess.newRole({
   invitation: ["create", "cancel"],
 });
 const orgStaffRole = orgAccess.newRole({ organization: [], member: [], invitation: [] });
+
+// The admin plugin's own gate on *its* endpoints (impersonate, ban,
+// set-role, …) — same "not the real authorization" caveat as orgAccess
+// above; requirePlatformUser() + the allowlisted role is what actually
+// decides who reaches /platform. `platformAdminRole` carries the exact
+// permissions the plugin's built-in "admin" role would — just under a name
+// that can't be confused with a Store's own `members.role = "admin"`, a
+// completely different axis (docs/adr/0007-platform-admin-role.md).
+const platformAdminRole = defaultAc.newRole({
+  user: ["create", "list", "set-role", "ban", "impersonate", "delete", "set-password", "set-email", "get", "update"],
+  session: ["list", "revoke", "delete"],
+});
 
 // The single better-auth instance. See docs/plans/better-auth-migration.md
 // and docs/adr/0002-multi-tenancy-mvp.md for why this replaced the
@@ -180,12 +194,18 @@ export const auth = betterAuth({
     // functional roles (support_agent / supplier) live on `members`.
     // Two separate axes; see the migration plan §3.
     admin({
-      // Allowlist rather than a populated user.role column: fewer moving
-      // parts, and no in-app path to granting yourself platform admin.
-      adminUserIds: (process.env.PLATFORM_ADMIN_USER_IDS ?? "")
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean),
+      // users.role = PLATFORM_ADMIN_ROLE, not an env-var id list
+      // (docs/adr/0007-platform-admin-role.md) — still no in-app path to
+      // granting yourself the role: nothing in this app's own server
+      // actions ever writes users.role, only a script run with direct,
+      // elevated DB credentials (scripts/grant-platform-admin.mts). That's
+      // the same trust boundary PLATFORM_ADMIN_USER_IDS had (deploy/infra
+      // access required, never a running request), just relocated off
+      // Vercel env vars — which turned out to drift silently from the
+      // database (a wiped-and-recreated user gets a fresh id the env var
+      // no longer matches) and to need a redeploy for every single change.
+      adminRoles: [PLATFORM_ADMIN_ROLE],
+      roles: { [PLATFORM_ADMIN_ROLE]: platformAdminRole, user: userAc },
     }),
 
     // Must stay last — it flushes Set-Cookie headers from Server Actions.

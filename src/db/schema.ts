@@ -106,9 +106,14 @@ export const users = pgTable(
     image: text("image"),
     // Platform-level administration — us, the operator. NOT the functional
     // role, which lives on `members.role`. Two deliberately separate axes;
-    // see docs/plans/better-auth-migration.md §3. Left null in practice:
-    // admins are allowlisted by id via PLATFORM_ADMIN_USER_IDS instead, so
-    // there is no in-app path to granting yourself platform admin.
+    // see docs/plans/better-auth-migration.md §3 and
+    // docs/adr/0007-platform-admin-role.md. `"platform_admin"` for an
+    // operator, null for everyone else — better-auth's admin plugin (which
+    // owns this column) stamps every OTHER new user with its own default
+    // ("user") on creation, harmlessly; nothing in this app's server actions
+    // ever writes `PLATFORM_ADMIN_ROLE` here, only a script run with direct,
+    // elevated DB credentials, so there is still no in-app path to granting
+    // yourself platform admin.
     role: text("role"),
     // Set whenever a password was chosen by someone other than its owner —
     // account creation, or an Admin resetting a forgotten one. Cleared by a

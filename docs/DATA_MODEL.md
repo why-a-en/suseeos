@@ -215,7 +215,7 @@ row here with two `members` rows.
 | `email` | `text` UNIQUE | globally unique, which is correct: it identifies a person, not a person-within-an-Organization |
 | `email_verified` | `boolean` | default `false`; unused until a verification flow ships |
 | `image` | `text` | unused |
-| `role` | `text` | **platform** administration (the operator), not the tenant role. Left null in practice — admins are allowlisted by id via `PLATFORM_ADMIN_USER_IDS` |
+| `role` | `text` | **platform** administration (the operator), not the tenant role. `"platform_admin"` for an operator, null for everyone else; the admin plugin stamps its own default ("user") on every other signup, harmlessly. Grantable only by a script with direct DB credentials, never through the app (docs/adr/0007-platform-admin-role.md) |
 | `banned` / `ban_reason` / `ban_expires` | | from the admin plugin; unused so far |
 | `created_at`, `updated_at` | `timestamptz` | default `now()` |
 
