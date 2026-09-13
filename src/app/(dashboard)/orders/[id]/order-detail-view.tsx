@@ -28,9 +28,13 @@ type OrderDetail = {
   id: string;
   notes: string | null;
   createdAt: Date;
+  /** Null means still a draft — see orders.placed_at's own comment. */
+  placedAt: Date | null;
   customerName: string;
   customerPhone: string;
   customerAddress: string | null;
+  /** The Support Agent who logged it (orders.created_by). */
+  creatorName: string;
 };
 
 type OrderItemRow = {
@@ -65,6 +69,14 @@ export function OrderDetailView({ order, items }: { order: OrderDetail; items: O
       <TopBar title={order.customerName} eyebrow={order.customerPhone} backHref="/orders" />
       <ScrollBody>
         <div className="grid gap-4 px-5 py-4">
+          <div className="flex items-center gap-2">
+            {/* Order-level state — the only one there is (ADR-0001): whether
+                it's been placed yet. Separate from each Item's own status
+                badge below, which is what a freshly-placed order's items
+                start as ("Pending") regardless of this. */}
+            <Badge tone={order.placedAt ? "accent" : "quiet"}>{order.placedAt ? "Placed" : "Draft"}</Badge>
+            <span className="font-ui text-small text-text-faint">by {order.creatorName}</span>
+          </div>
           {order.customerAddress && <p className="font-ui text-small text-text-muted">{order.customerAddress}</p>}
           {order.notes && <p className="font-ui text-small text-text-body">{order.notes}</p>}
 

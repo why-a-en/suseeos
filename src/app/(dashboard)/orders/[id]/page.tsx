@@ -9,6 +9,7 @@ import {
   modifierOptions,
   products,
   customers,
+  users,
 } from "@/db/schema";
 import { OrderDetailView } from "./order-detail-view";
 
@@ -26,12 +27,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         id: orders.id,
         notes: orders.notes,
         createdAt: orders.createdAt,
+        placedAt: orders.placedAt,
         customerName: customers.name,
         customerPhone: customers.phone,
         customerAddress: customers.address,
+        creatorName: users.name,
       })
       .from(orders)
       .innerJoin(customers, eq(customers.id, orders.customerId))
+      .innerJoin(users, eq(users.id, orders.createdBy))
       .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)))
       .limit(1);
     if (!order) return null;

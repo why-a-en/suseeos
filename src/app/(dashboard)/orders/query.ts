@@ -1,8 +1,8 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { withCurrentOrganization } from "@/lib/tenancy";
-import { orders, orderItems, customers } from "@/db/schema";
+import { orders, customers, users } from "@/db/schema";
 import type { OrderRowData } from "./orders-view";
 import type { WizardCustomer } from "./new-order-wizard";
 
@@ -177,9 +177,11 @@ export async function fetchOrdersPage(filters: OrdersFilters, cursor: OrdersCurs
         notes: orders.notes,
         createdAt: orders.createdAt,
         placedAt: orders.placedAt,
+        creatorName: users.name,
       })
       .from(orders)
       .innerJoin(customers, eq(customers.id, orders.customerId))
+      .innerJoin(users, eq(users.id, orders.createdBy))
       .where(where)
       .orderBy(desc(orders.createdAt), desc(orders.id))
       // One more than a page: its presence is what says "there is a next
@@ -189,31 +191,12 @@ export async function fetchOrdersPage(filters: OrdersFilters, cursor: OrdersCurs
     const hasMore = orderRows.length > ORDERS_PAGE_SIZE;
     const pageRows = hasMore ? orderRows.slice(0, ORDERS_PAGE_SIZE) : orderRows;
 
-    const orderIds = pageRows.map((o) => o.id);
-    // The list needs only each order's item statuses (for the summary line,
-    // and its length as the draft count) — not products or modifier
-    // selections. The wizard fetches a draft's full contents itself.
-    const itemRows =
-      orderIds.length === 0
-        ? []
-        : await tx
-            .select({ orderId: orderItems.orderId, status: orderItems.status })
-            .from(orderItems)
-            .where(inArray(orderItems.orderId, orderIds));
-
-    const statusesByOrder = new Map<string, string[]>();
-    for (const row of itemRows) {
-      const statuses = statusesByOrder.get(row.orderId) ?? [];
-      statuses.push(row.status);
-      statusesByOrder.set(row.orderId, statuses);
-    }
-
     const rows = pageRows.map(
       (order): OrderRowData => ({
         id: order.id,
         customerName: order.customerName,
         createdAtLabel: formatOrderDate(order.createdAt),
-        itemStatuses: statusesByOrder.get(order.id) ?? [],
+        creatorName: order.creatorName,
         isDraft: order.placedAt === null,
       }),
     );
