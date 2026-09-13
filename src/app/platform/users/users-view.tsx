@@ -20,7 +20,7 @@ import {
 import { Icon } from "@/components/icon";
 import type { PlatformUserRow } from "@/services/platform";
 import type { AppRole } from "@/services/types";
-import { impersonateAction } from "../actions";
+import { impersonateAction, resetOperatorPasswordAction } from "../actions";
 
 const ROLE_LABELS = {
   admin: "Admin",
@@ -43,7 +43,16 @@ function membershipLine(user: PlatformUserRow): string {
   return user.memberships.map((m) => `${m.storeName} · ${ROLE_LABELS[m.role]}`).join("   ");
 }
 
-export function UsersView({ users }: { users: PlatformUserRow[] }) {
+export function UsersView({
+  users,
+  currentUserId,
+}: {
+  users: PlatformUserRow[];
+  /** So the sheet can hide "Reset password" on the viewer's own row — that
+   *  button is for resetting a *fellow* operator (docs/adr/0007), never a
+   *  self-service path. */
+  currentUserId: string;
+}) {
   const [selected, setSelected] = useState<PlatformUserRow | null>(null);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<RoleFilter>("all");
@@ -104,20 +113,23 @@ export function UsersView({ users }: { users: PlatformUserRow[] }) {
         )}
       </ScrollBody>
 
-      <UserSheet user={selected} onClose={() => setSelected(null)} />
+      <UserSheet user={selected} currentUserId={currentUserId} onClose={() => setSelected(null)} />
     </Screen>
   );
 }
 
 function UserSheet({
   user,
+  currentUserId,
   onClose,
 }: {
   user: PlatformUserRow | null;
+  currentUserId: string;
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const canImpersonate = user !== null && !user.isOperator && user.memberships.length > 0;
+  const canResetOperator = user !== null && user.isOperator && user.id !== currentUserId;
 
   return (
     <Sheet open={user !== null} onOpenChange={(open) => !open && onClose()}>
@@ -160,20 +172,50 @@ function UserSheet({
               </div>
             </SheetBody>
             <SheetFooter>
-              <Button
-                full
-                variant="secondary"
-                icon="user"
-                disabled={!canImpersonate || pending}
-                onClick={() =>
-                  startTransition(async () => {
-                    const result = await impersonateAction(user.email);
-                    if (result?.error) toast.error(result.error);
-                  })
-                }
-              >
-                {canImpersonate ? "Impersonate" : "Can't impersonate"}
-              </Button>
+              {/* An operator row gets a completely different action than a
+                  tenant user's — impersonating a fellow operator makes no
+                  sense (they have no tenant footprint to step into), and a
+                  tenant user has no password for another operator to reset.
+                  Your own operator row gets neither: nothing here acts on
+                  yourself (docs/adr/0007-platform-admin-role.md). */}
+              {user.isOperator ? (
+                canResetOperator && (
+                  <Button
+                    full
+                    variant="secondary"
+                    icon="lock"
+                    disabled={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await resetOperatorPasswordAction(user.id);
+                        if (result.error) {
+                          toast.error(result.error);
+                          return;
+                        }
+                        toast.success(`Password reset — emailed to ${result.emailedTo}.`);
+                        onClose();
+                      })
+                    }
+                  >
+                    {pending ? "Resetting…" : "Reset password"}
+                  </Button>
+                )
+              ) : (
+                <Button
+                  full
+                  variant="secondary"
+                  icon="user"
+                  disabled={!canImpersonate || pending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await impersonateAction(user.email);
+                      if (result?.error) toast.error(result.error);
+                    })
+                  }
+                >
+                  {canImpersonate ? "Impersonate" : "Can't impersonate"}
+                </Button>
+              )}
             </SheetFooter>
           </>
         )}

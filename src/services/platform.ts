@@ -1,8 +1,10 @@
 import { and, count, desc, eq, gt, gte } from "drizzle-orm";
 import { db } from "@/db/client";
-import { invitations, members, organizations, users } from "@/db/schema";
+import { accounts, invitations, members, organizations, users } from "@/db/schema";
 import { isPlatformAdmin } from "@/lib/auth/platform-admins";
+import { hashPassword } from "@/lib/auth/hash";
 import { isValidEmailSyntax } from "@/lib/email/address";
+import { generateTemporaryPassword } from "./password";
 import { ServiceError, type AppRole } from "./types";
 
 // Invitations expire in 7 days everywhere they're issued — kept in sync by
@@ -205,6 +207,9 @@ export async function listUsers(): Promise<PlatformUserRow[]> {
       name: users.name,
       email: users.email,
       createdAt: users.createdAt,
+      // Aliased — members.role below is the tenant AppRole, a completely
+      // different axis from this one (docs/adr/0007-platform-admin-role.md).
+      platformRole: users.role,
       storeName: organizations.name,
       storeSlug: organizations.slug,
       storeStatus: organizations.status,
@@ -225,7 +230,7 @@ export async function listUsers(): Promise<PlatformUserRow[]> {
         name: r.name,
         email: r.email,
         createdAt: r.createdAt,
-        isOperator: isPlatformAdmin(r.id),
+        isOperator: isPlatformAdmin(r.platformRole),
         memberships: [],
       };
       byUser.set(r.id, u);
@@ -241,6 +246,48 @@ export async function listUsers(): Promise<PlatformUserRow[]> {
     }
   }
   return [...byUser.values()];
+}
+
+/**
+ * Resets a fellow operator's password from the platform console — the
+ * piece PLATFORM_ADMIN_USER_IDS never had (ADR-0007): a Platform Admin has
+ * no `members` row, so the tenant staff-reset flow (services/staff.ts)
+ * can't reach them, and until now nothing else could either. Same shape as
+ * that flow deliberately: generated, never chosen by the resetter, one-time,
+ * forces replacement on next sign-in — the resetter must not retain
+ * standing access via a password only they know (ADR-0003).
+ */
+export async function resetOperatorPassword(
+  targetUserId: string,
+): Promise<{ email: string; name: string; temporaryPassword: string }> {
+  const [target] = await db
+    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target) throw new ServiceError("That operator no longer exists.");
+  if (!isPlatformAdmin(target.role)) {
+    throw new ServiceError("That account isn't a Platform Admin.");
+  }
+
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.userId, target.id), eq(accounts.providerId, "credential")))
+    .limit(1);
+  if (!account) throw new ServiceError("That account has no password to reset.");
+
+  const temporaryPassword = generateTemporaryPassword();
+  await db
+    .update(accounts)
+    .set({ password: await hashPassword(temporaryPassword), updatedAt: new Date() })
+    .where(eq(accounts.id, account.id));
+  await db
+    .update(users)
+    .set({ mustChangePassword: true, updatedAt: new Date() })
+    .where(eq(users.id, target.id));
+
+  return { email: target.email, name: target.name, temporaryPassword };
 }
 
 function slugify(name: string): string {

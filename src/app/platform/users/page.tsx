@@ -3,8 +3,8 @@ import { listUsers } from "@/services/platform";
 import { UsersView } from "./users-view";
 
 export default async function UsersPage() {
-  await requirePlatformUser();
+  const operator = await requirePlatformUser();
   const users = await listUsers();
 
-  return <UsersView users={users} />;
+  return <UsersView users={users} currentUserId={operator.id} />;
 }

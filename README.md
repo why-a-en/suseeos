@@ -113,7 +113,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 | `BETTER_AUTH_SECRET` | ✅ generate one |
 | `BETTER_AUTH_URL` | ✅ `http://localhost:3000` |
 | `R2_*` | ⬜ only for image uploads |
-| `PLATFORM_ADMIN_USER_IDS` | ⬜ only to use the operator console (`/platform`) — comma-separated `users.id`s |
 
 ### 5 · Migrate and seed
 
@@ -140,9 +139,9 @@ one wired to a different Organization/Store situation:
 | `supplier@test.local` | straight in, with the Store switcher in Settings (both Stores) |
 
 *(No public signup. Bootstrap the first Store with `pnpm store:create`.
-After that, a **platform operator** — a `PLATFORM_ADMIN_USER_IDS` account
-with no tenant membership, created via `pnpm platform:add` — provisions more
-from the operator console at `/platform`.)*
+After that, a **platform operator** — a `users.role = "platform_admin"`
+account with no tenant membership, created via `pnpm platform:add` —
+provisions more from the operator console at `/platform`.)*
 
 ---
 
@@ -158,7 +157,8 @@ from the operator console at `/platform`.)*
 | `pnpm db:migrate` | apply migrations (via `DATABASE_URL_UNPOOLED`) |
 | `pnpm db:studio` | Drizzle Studio — browse the DB |
 | `pnpm store:create "<Store>" <email> "<Name>" <pw> [role]` | provision a Store + first Admin |
-| `pnpm platform:add <email> "<Name>" <pw>` | create a platform-operator account (then add its id to `PLATFORM_ADMIN_USER_IDS`) |
+| `pnpm platform:add <email> "<Name>" <pw>` | create a platform-operator account — ready to sign in immediately |
+| `pnpm platform:grant <email>` | promote an existing account to platform operator |
 | `pnpm member:add <email> <store-slug> <role> ["<Name>" <pw>]` | add someone to a Store (creates the account if new) |
 | `pnpm tsx scripts/seed-test-data.mts` | (re)create the dev accounts above |
 

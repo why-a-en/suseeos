@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 import { requirePlatformUser } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -11,7 +12,11 @@ import { Toaster } from "@/components/ui/sonner";
 // which swaps the session to the target user and drops them into the normal
 // tenant app with the banner. See ADR-0002 and src/lib/auth.
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
-  await requirePlatformUser();
+  const user = await requirePlatformUser();
+  // Same forced-change gate (dashboard)/layout.tsx carries for tenant
+  // sessions — an operator-resets-operator password (docs/adr/0007) needs
+  // this to actually mean anything; without it the flag just sits there.
+  if (user.mustChangePassword) redirect("/change-password");
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-(--content-max) flex-1 flex-col">
