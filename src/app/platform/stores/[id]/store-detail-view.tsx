@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { toast } from "sonner";
 import { Screen, ScrollBody } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
@@ -14,11 +15,22 @@ import {
   SheetBody,
   SheetFooter,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Icon } from "@/components/icon";
 import type { StoreDetail } from "@/services/platform";
 import { impersonateAction } from "../../actions";
 import {
   cancelStoreInvitationAction,
+  deleteStoreAction,
   resendStoreInvitationAction,
   setStoreStatusAction,
 } from "../actions";
@@ -44,6 +56,23 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Member | null>(null);
   const [selectedInvite, setSelectedInvite] = useState<PendingInvitation | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function handleDelete() {
+    setConfirmDelete(false);
+    startTransition(async () => {
+      try {
+        // Returns { error } if deleteStore rejected it; redirects to
+        // /platform/stores on success, which throws — has to be let
+        // through, not treated as the failure it otherwise looks like.
+        const result = await deleteStoreAction(store.id);
+        if (result.error) toast.error(result.error);
+      } catch (e) {
+        unstable_rethrow(e);
+        toast.error(e instanceof Error ? e.message : "Couldn't delete that Store.");
+      }
+    });
+  }
 
   return (
     <Screen>
@@ -76,6 +105,17 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
             }
           >
             {store.status === "suspended" ? "Restore Store" : "Suspend Store"}
+          </Button>
+
+          {/* The one exception to "suspension is the only lever" — safe
+              only while nothing of record exists yet to lose. */}
+          <Button
+            full
+            variant="danger"
+            disabled={pending || !store.canDelete}
+            onClick={() => setConfirmDelete(true)}
+          >
+            {store.canDelete ? "Delete Store" : "Can't delete — has data on record"}
           </Button>
         </div>
 
@@ -126,6 +166,25 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
         invite={selectedInvite}
         onClose={() => setSelectedInvite(null)}
       />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {store.name}?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogBody>
+            <AlertDialogDescription>
+              The Store, its members, and its pending invitations go. This can&rsquo;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogBody>
+          <AlertDialogFooter className="grid gap-2">
+            <Button full variant="danger" disabled={pending} onClick={handleDelete}>
+              Delete Store
+            </Button>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Screen>
   );
 }

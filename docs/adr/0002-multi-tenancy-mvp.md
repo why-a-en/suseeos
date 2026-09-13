@@ -154,6 +154,14 @@ Two known gaps are recorded rather than fixed:
   into anything more sensitive.
 - **No `onDelete` on the FKs to `organizations`.** Off-boarding a tenant
   currently requires hand-written SQL.
+  > **Update (`feat/delete-empty-store`):** narrowed, not closed. The
+  > platform console can now delete a Store outright (`deleteStore` in
+  > `services/platform.ts`), but only while it's still empty — no
+  > Customers, Products, Orders, or impersonation history. A tenant with
+  > real data still needs hand-written SQL; that case is deliberately not
+  > wired up, since cascading through Orders would take financial/audit
+  > history with it. Suspension (decision 8) remains the only lever once a
+  > Store has been actually used.
 
 ## Consequences
 

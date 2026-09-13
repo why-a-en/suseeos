@@ -1,6 +1,17 @@
 import { and, count, desc, eq, gt, gte } from "drizzle-orm";
-import { db } from "@/db/client";
-import { accounts, invitations, members, organizations, users } from "@/db/schema";
+import { db, withOrganizationScope } from "@/db/client";
+import {
+  accounts,
+  customers,
+  impersonationEvents,
+  invitations,
+  members,
+  orders,
+  organizations,
+  products,
+  sessions,
+  users,
+} from "@/db/schema";
 import { isPlatformAdmin } from "@/lib/auth/platform-admins";
 import { hashPassword } from "@/lib/auth/hash";
 import { isValidEmailSyntax } from "@/lib/email/address";
@@ -76,6 +87,10 @@ export type StoreDetail = {
     role: AppRole;
     expiresAt: Date;
   }[];
+  /** Whether deleteStore would accept this Store right now — no Customers,
+   *  Products, Orders, or impersonation history. Gates the delete button;
+   *  deleteStore re-checks server-side rather than trusting this. */
+  canDelete: boolean;
 };
 
 /** One Store, everyone in it, and anyone still waiting to accept.
@@ -117,10 +132,13 @@ export async function getStoreDetail(
     .where(and(eq(invitations.organizationId, storeId), eq(invitations.status, "pending"), gt(invitations.expiresAt, now)))
     .orderBy(desc(invitations.createdAt));
 
+  const { canDelete } = await checkStoreDeletable(storeId, org.name);
+
   return {
     ...org,
     members: rows.map((r) => ({ ...r, role: r.role as AppRole })),
     pendingInvitations: inviteRows.map((r) => ({ ...r, role: (r.role ?? "admin") as AppRole })),
+    canDelete,
   };
 }
 
@@ -373,6 +391,103 @@ export async function setStoreStatus(input: {
     .update(organizations)
     .set({ status: input.status })
     .where(eq(organizations.id, input.storeId));
+}
+
+/**
+ * Whether `deleteStore` would accept this Store right now, and why not if
+ * it wouldn't. Shared by `getStoreDetail` (to gate the button) and
+ * `deleteStore` itself (to re-check server-side rather than trust the
+ * caller).
+ *
+ * `customers`/`products`/`orders` are RLS-scoped (docs/DATA_MODEL.md §5),
+ * so counting them needs `withOrganizationScope` — a Platform Admin has no
+ * membership to derive that scope from the session the way tenant code
+ * does, so it's supplied directly, the same reason platformMetrics above
+ * stays off these tables for its own cross-tenant counts.
+ */
+async function checkStoreDeletable(
+  storeId: string,
+  storeName: string,
+): Promise<{ canDelete: boolean; reason?: string }> {
+  const { customerCount, productCount, orderCount } = await withOrganizationScope(storeId, async (tx) => {
+    const [{ n: customerCount }] = await tx
+      .select({ n: count() })
+      .from(customers)
+      .where(eq(customers.organizationId, storeId));
+    const [{ n: productCount }] = await tx
+      .select({ n: count() })
+      .from(products)
+      .where(eq(products.organizationId, storeId));
+    const [{ n: orderCount }] = await tx
+      .select({ n: count() })
+      .from(orders)
+      .where(eq(orders.organizationId, storeId));
+    return { customerCount, productCount, orderCount };
+  });
+  if (customerCount > 0 || productCount > 0 || orderCount > 0) {
+    return {
+      canDelete: false,
+      reason: `${storeName} has Customers, Products, or Orders on record — suspend it instead of deleting.`,
+    };
+  }
+
+  // Not RLS-scoped — an audit trail, not tenant data (see its own comment
+  // in db/schema.ts) — so a plain read is correct here, not an oversight.
+  const [{ n: impersonationCount }] = await db
+    .select({ n: count() })
+    .from(impersonationEvents)
+    .where(eq(impersonationEvents.organizationId, storeId));
+  if (impersonationCount > 0) {
+    return {
+      canDelete: false,
+      reason: `${storeName} has impersonation history on record — suspend it instead of deleting.`,
+    };
+  }
+
+  return { canDelete: true };
+}
+
+/**
+ * Deletes a Store outright — the narrow exception to "suspension is the
+ * only lever" (ADR-0002 §8). Only safe while the Store is still empty
+ * (`checkStoreDeletable` above): `customers`/`products`/`orders` FK to
+ * `organizations` with no `onDelete` (ADR-0002's recorded gap —
+ * off-boarding a tenant WITH data still needs hand-written SQL,
+ * deliberately, since cascading through those would take order history
+ * with it). This covers the other case — a Store created by mistake, or
+ * still on its unaccepted first invite — where nothing of record would be
+ * lost.
+ *
+ * The check and the delete aren't one transaction — `checkStoreDeletable`
+ * needs its own (`withOrganizationScope` opens one to set the RLS session
+ * variable). A write landing in between is still caught: those same FKs
+ * make Postgres itself refuse the delete, just as a raw error instead of
+ * this function's friendlier one.
+ *
+ * `members`/`invitations` cascade automatically. `sessions` is cleared by
+ * hand: ephemeral auth state, not data of record, but its FK isn't
+ * cascading either. `impersonationEvents` is the one thing this
+ * deliberately never touches — append-only audit, so a Store any operator
+ * has ever impersonated into is no longer eligible.
+ */
+export async function deleteStore(storeId: string): Promise<void> {
+  const [org] = await db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, storeId))
+    .limit(1);
+  if (!org) throw new ServiceError("That Store no longer exists.");
+
+  const { canDelete, reason } = await checkStoreDeletable(storeId, org.name);
+  if (!canDelete) throw new ServiceError(reason!);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sessions)
+      .set({ activeOrganizationId: null })
+      .where(eq(sessions.activeOrganizationId, storeId));
+    await tx.delete(organizations).where(eq(organizations.id, storeId));
+  });
 }
 
 export type ResentInvitation = {
