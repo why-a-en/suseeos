@@ -11,7 +11,14 @@ import {
   customers,
   users,
 } from "@/db/schema";
-import { OrderDetailView } from "./order-detail-view";
+import { Screen, ScrollBody } from "@/components/ui/screen";
+import { TopBar } from "@/components/ui/top-bar";
+import { Badge, type OrderItemStatus } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+
+function display(status: string): OrderItemStatus {
+  return (status.charAt(0).toUpperCase() + status.slice(1)) as OrderItemStatus;
+}
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: orderId } = await params;
@@ -76,6 +83,55 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   });
 
   if (!data) notFound();
+  const { order, items } = data;
 
-  return <OrderDetailView order={data.order} items={data.items} />;
+  return (
+    <Screen>
+      {/* Read-only — no "add item" (an Order is closed to new Items once
+          placed, see saveOrder's own comment) and no cancel action either:
+          this page is the record of what happened, not where you act on an
+          item's lifecycle. That happens from the Purchase Queue ("Can't
+          source") or Parcels (its own Cancel), where the person actually
+          working that stage is looking at it. */}
+      <TopBar title={order.customerName} eyebrow={order.customerPhone} backHref="/orders" />
+      <ScrollBody>
+        <div className="grid gap-4 px-5 py-4">
+          <div className="flex items-center gap-2">
+            {/* Order-level state — the only one there is (ADR-0001): whether
+                it's been placed yet. Separate from each Item's own status
+                badge below, which is what a freshly-placed order's items
+                start as ("Pending") regardless of this. */}
+            <Badge tone={order.placedAt ? "accent" : "quiet"}>{order.placedAt ? "Placed" : "Draft"}</Badge>
+            <span className="font-ui text-small text-text-faint">by {order.creatorName}</span>
+          </div>
+          {order.customerAddress && <p className="font-ui text-small text-text-muted">{order.customerAddress}</p>}
+          {order.notes && <p className="font-ui text-small text-text-body">{order.notes}</p>}
+
+          <section className="grid gap-2">
+            <span className="font-mono text-label tracking-label uppercase text-text-faint">Items</span>
+
+            {/* Reachable only for an order whose items were all cancelled
+                elsewhere (Purchase Queue / Parcels) — nothing on this page
+                does that, so the copy doesn't invite it. */}
+            {items.length === 0 ? (
+              <EmptyState icon="package" title="Nothing on this order." body="Every item on it was cancelled." />
+            ) : (
+              items.map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-line-hairline p-3">
+                  <div>
+                    <p className="font-ui text-body-strong text-text-strong">{item.productName}</p>
+                    <p className="mt-0.5 font-ui text-small text-text-muted">
+                      {item.modifiers.length > 0 ? `${item.modifiers.join(", ")} · ` : ""}
+                      qty {item.quantity}
+                    </p>
+                  </div>
+                  <Badge status={display(item.status)} size="sm" />
+                </div>
+              ))
+            )}
+          </section>
+        </div>
+      </ScrollBody>
+    </Screen>
+  );
 }
