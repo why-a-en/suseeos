@@ -60,14 +60,27 @@ const platformAdminRole = defaultAc.newRole({
 // withCurrentOrganization() instead — that indirection is what keeps a
 // future swap (to Cognito, or anything else) a two-file change rather than
 // a rewrite. See ARCHITECTURE_ROADMAP.md §1.
-// Explicit BETTER_AUTH_URL wins; on Vercel fall back to the stable
-// production domain, then the per-deployment URL, so a deploy works without
-// hardcoding anything. (This app never mounts better-auth's HTTP handler —
-// see the note in src/lib/auth — so baseURL only matters for the library's
-// own internal URL building, not for browser CSRF/redirects.)
+// Explicit BETTER_AUTH_URL wins; on Vercel, Production gets the stable
+// production domain and every other environment gets a URL that actually
+// points back at itself, so a deploy works without hardcoding anything.
+// (This app never mounts better-auth's HTTP handler — see the note in
+// src/lib/auth — so baseURL only matters for the library's own internal
+// URL building, not for browser CSRF/redirects.)
+//
+// VERCEL_PROJECT_PRODUCTION_URL is *always* set, on every environment —
+// it's "the production domain," not "this deployment's domain" — so using
+// it unconditionally would resolve a Preview deployment's baseURL to
+// production. Gate it on actually being Production; everywhere else,
+// VERCEL_BRANCH_URL (stable per git branch) beats VERCEL_URL (unique per
+// deployment, reshuffles on every push). Mirrors appBaseURL() (src/lib/app-url.ts).
 function resolveBaseURL(): string {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
-  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+
+  if (process.env.VERCEL_ENV === "production" && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+
+  const host = process.env.VERCEL_BRANCH_URL ?? process.env.VERCEL_URL;
   return host ? `https://${host}` : "http://localhost:3000";
 }
 
