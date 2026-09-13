@@ -412,6 +412,11 @@ export function NewOrderWizard({
       try {
         const created = await createCustomerAction({ name: newCustomerName, phone: newCustomerPhone, address: newCustomerAddress });
         setCustomer({ id: created.id, name: created.name, phone: created.phone, address: newCustomerAddress });
+        // The create sub-step's job is done — close it the same way its own
+        // "Back" button does, so stepping back to Customer later (Previous,
+        // or a progress-indicator jump) lands on the search view with this
+        // customer selected, not the create form again.
+        setAddingCustomer(false);
         setStep("items");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't create that customer.");
@@ -952,7 +957,7 @@ export function NewOrderWizard({
           </button>
         ) : null}
         <div className="flex gap-2">
-          <Button variant="secondary" icon="arrow-left" onClick={() => (resume ? leaveWizard("/orders") : setStep("customer"))}>
+          <Button variant="secondary" icon="arrow-left" onClick={() => (resume ? leaveWizard("/orders") : jumpToStep("customer"))}>
             Previous
           </Button>
           <Button full iconAfter="chevron-right" disabled={!totalItemCount} onClick={() => setStep("review")} className="flex-1 rounded-full shadow-raised">
