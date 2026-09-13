@@ -435,12 +435,14 @@ export const orders = pgTable(
       .notNull()
       .references(() => customers.id),
     // What a Support Agent actually says to a Customer — "check on order
-    // 482137" — instead of the id above, which is neither said aloud nor
-    // typed. Deliberately random within the Store (services/orders.ts
-    // picks it, retrying on the rare collision), not sequential: a
-    // sequential number tells anyone who sees two of them roughly how many
-    // orders this Store has ever placed, which is nobody else's business.
-    orderNumber: integer("order_number").notNull(),
+    // K3XQ9M" — instead of the id above, which is neither said aloud nor
+    // typed. 6 characters from the same misread-proof alphabet temporary
+    // passwords use (services/password.ts), picked and checked for
+    // collision by services/orders.ts. Deliberately random, not
+    // sequential: a sequential number tells anyone who sees two of them
+    // roughly how many orders this Store has ever placed, which is
+    // nobody else's business.
+    orderNumber: text("order_number").notNull(),
     screenshotUrl: text("screenshot_url"),
     notes: text("notes"),
     createdBy: uuid("created_by")

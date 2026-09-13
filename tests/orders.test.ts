@@ -147,10 +147,10 @@ describe("saveOrder", () => {
     // Placing stamps placed_at — that is what releases items to the queue.
     expect(order.placedAt).not.toBeNull();
     expect(order.createdBy).toBe(userId);
-    // Random, 6 digits, drawn by pickOrderNumber — not the sequential 1, 2,
-    // 3 a plain row count would give.
-    expect(order.orderNumber).toBeGreaterThanOrEqual(100_000);
-    expect(order.orderNumber).toBeLessThanOrEqual(999_999);
+    // Random, 6 characters from the misread-proof alphabet (services/
+    // password.ts's READABLE_ALPHABET), drawn by pickOrderNumber — not the
+    // sequential 1, 2, 3 a plain row count would give.
+    expect(order.orderNumber).toMatch(/^[abcdefghjkmnpqrtuvwxyz2346789]{6}$/);
 
     const items = await asOrg(orgId, ({ tx }) =>
       tx.select().from(orderItems).where(eq(orderItems.orderId, orderId)),

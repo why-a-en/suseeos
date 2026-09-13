@@ -75,7 +75,7 @@ _Avoid_: Variant, value.
 
 **Order**: A Customer's request, logged by a Support Agent — a header
 (who, when) holding one or more Order Items. Has no status of its own;
-see Order Item. Identified by its Order Number (e.g. "#482137") — random,
+see Order Item. Identified by its Order Number (e.g. "#u2cj3c") — random,
 not sequential, so it can't be used to guess how many orders a Store has
 ever placed; never the database id, which nobody says aloud.
 _Avoid_: Purchase, transaction, cart.

@@ -39,7 +39,7 @@ export interface OrderRowData {
   id: string;
   /** Random, unique per Store (services/orders.ts) — what's actually said
    *  aloud or typed to look an order up, never the id above. */
-  orderNumber: number;
+  orderNumber: string;
   customerName: string;
   /** Preformatted on the server — see formatOrderDate in page.tsx. */
   createdAtLabel: string;

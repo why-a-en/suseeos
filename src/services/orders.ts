@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { and, eq, isNull, notInArray } from "drizzle-orm";
 import { orderItemModifiers, orderItems, orders } from "@/db/schema";
+import { READABLE_ALPHABET } from "./password";
 import { ServiceError, type ServiceContext } from "./types";
 
 // Order writes. No `next/*` imports — see ./types.ts and
@@ -14,12 +15,19 @@ import { ServiceError, type ServiceContext } from "./types";
 // shared org-wide cap.
 export const MAX_OPEN_DRAFTS_PER_USER = 5;
 
-// The 6-digit range an order number is drawn from — 900,000 values per
-// Store. Wide enough that collisions stay rare at any order volume this
-// business will plausibly reach; see pickOrderNumber below for what
-// happens on the rare one anyway.
-const ORDER_NUMBER_MIN = 100_000;
-const ORDER_NUMBER_MAX = 999_999;
+// 6 characters from the same 29-character, misread-proof alphabet the
+// temporary-password generator uses (services/password.ts) — this is read
+// aloud and typed into chat messages the same way. 29^6 ≈ 594 million
+// possible codes per Store: wide enough that collisions stay rare at any
+// order volume this business will plausibly reach; see pickOrderNumber
+// below for what happens on the rare one anyway.
+const ORDER_NUMBER_LENGTH = 6;
+
+function randomOrderNumber(): string {
+  let out = "";
+  for (let i = 0; i < ORDER_NUMBER_LENGTH; i++) out += READABLE_ALPHABET[randomInt(READABLE_ALPHABET.length)];
+  return out;
+}
 
 /**
  * Draws a random order number and confirms no other Order in this Store
@@ -30,17 +38,17 @@ const ORDER_NUMBER_MAX = 999_999;
  * doesn't support the SAVEPOINTs a caught violation would need to keep
  * retrying inside the same transaction — an uncaught one aborts it
  * outright. That leaves a theoretical TOCTOU race (two saves for the same
- * Store landing on the same number between this check and the insert
+ * Store landing on the same code between this check and the insert
  * below), accepted rather than engineered around: at this business's
  * scale, two Support Agents saving orders in the same instant is already
- * rare, and the two landing on the same one of 900,000 numbers rarer
+ * rare, and the two landing on the same one of ~594 million codes rarer
  * still — if it ever happens, the insert's own unique index still refuses
  * it, and the save just fails with the ordinary "couldn't save" error the
  * caller already shows for any other failure.
  */
-async function pickOrderNumber(ctx: ServiceContext): Promise<number> {
+async function pickOrderNumber(ctx: ServiceContext): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
-    const candidate = randomInt(ORDER_NUMBER_MIN, ORDER_NUMBER_MAX + 1);
+    const candidate = randomOrderNumber();
     const [clash] = await ctx.tx
       .select({ id: orders.id })
       .from(orders)
