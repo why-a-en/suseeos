@@ -9,18 +9,9 @@ import {
   modifierOptions,
   products,
   customers,
+  users,
 } from "@/db/schema";
-import { Screen, ScrollBody } from "@/components/ui/screen";
-import { TopBar } from "@/components/ui/top-bar";
-import { Badge, type OrderItemStatus } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
-import { cancelOrderItemAction } from "../actions";
-
-const CANCELLABLE_STATUSES = ["pending", "purchased", "received", "packed"] as const;
-
-function display(status: string): OrderItemStatus {
-  return (status.charAt(0).toUpperCase() + status.slice(1)) as OrderItemStatus;
-}
+import { OrderDetailView } from "./order-detail-view";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: orderId } = await params;
@@ -36,12 +27,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         id: orders.id,
         notes: orders.notes,
         createdAt: orders.createdAt,
+        placedAt: orders.placedAt,
         customerName: customers.name,
         customerPhone: customers.phone,
         customerAddress: customers.address,
+        creatorName: users.name,
       })
       .from(orders)
       .innerJoin(customers, eq(customers.id, orders.customerId))
+      .innerJoin(users, eq(users.id, orders.createdBy))
       .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)))
       .limit(1);
     if (!order) return null;
@@ -82,56 +76,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   });
 
   if (!data) notFound();
-  const { order, items } = data;
 
-  return (
-    <Screen>
-      {/* No "add item" action: an Order is closed to new Items once placed
-          (see the note above cancelOrderItemAction in ../actions.ts). What
-          can still change here is cancelling an Item that can't be
-          fulfilled. */}
-      <TopBar title={order.customerName} eyebrow={order.customerPhone} backHref="/orders" />
-      <ScrollBody>
-        <div className="grid gap-4 px-5 py-4">
-          {order.customerAddress && <p className="font-ui text-small text-text-muted">{order.customerAddress}</p>}
-          {order.notes && <p className="font-ui text-small text-text-body">{order.notes}</p>}
-
-          <section className="grid gap-2">
-            <span className="font-mono text-label tracking-label uppercase text-text-faint">Items</span>
-
-            {/* Reachable only for an order whose items were all cancelled —
-                items can't be added back here, so the copy doesn't invite
-                it. */}
-            {items.length === 0 ? (
-              <EmptyState icon="package" title="Nothing on this order." body="Every item on it was cancelled." />
-            ) : (
-              items.map((item) => (
-                <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-line-hairline p-3">
-                  <div>
-                    <p className="font-ui text-body-strong text-text-strong">{item.productName}</p>
-                    <p className="mt-0.5 font-ui text-small text-text-muted">
-                      {item.modifiers.length > 0 ? `${item.modifiers.join(", ")} · ` : ""}
-                      qty {item.quantity}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <Badge status={display(item.status)} size="sm" />
-                    {(CANCELLABLE_STATUSES as readonly string[]).includes(item.status) && (
-                      <form action={cancelOrderItemAction}>
-                        <input type="hidden" name="orderItemId" value={item.id} />
-                        <input type="hidden" name="orderId" value={order.id} />
-                        <button type="submit" className="cursor-pointer border-none bg-transparent font-ui text-small text-danger underline underline-offset-2 outline-none transition-transform duration-instant ease-standard active:scale-95 focus-visible:shadow-[var(--focus-ring)]">
-                          Cancel
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </section>
-        </div>
-      </ScrollBody>
-    </Screen>
-  );
+  return <OrderDetailView order={data.order} items={data.items} />;
 }

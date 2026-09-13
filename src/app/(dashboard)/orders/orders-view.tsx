@@ -21,8 +21,9 @@ import type { OrdersCursor, OrdersFilters } from "./query";
 // span several Items in different stages at once. The one real order-level
 // state is whether it's been placed yet (orders.placedAt), so that's what
 // this filters by. The list itself shows each order's date rather than a
-// Draft/Placed chip — the filter above already answers that question, and
-// the per-item summary line answers the more useful one.
+// Draft/Placed chip — the filter above already answers that question. Item
+// status isn't shown here at all — that's what the order detail page is
+// for; the list's own subtitle is who logged it instead.
 type OrderStatus = "draft" | "placed";
 
 const STATUS_SEGMENTS: { value: OrderStatus; label: string }[] = [
@@ -39,21 +40,14 @@ export interface OrderRowData {
   customerName: string;
   /** Preformatted on the server — see formatOrderDate in page.tsx. */
   createdAtLabel: string;
-  itemStatuses: string[];
+  /** The Support Agent who logged it (orders.created_by) — the list's
+   *  subtitle now that item status isn't shown here. */
+  creatorName: string;
   /** True when the order hasn't been placed yet (placed_at is null) —
    *  tapping the row resumes the wizard (/orders/new?draft=<id>) instead
    *  of opening the detail page. The wizard fetches the resume payload
-   *  itself; the list only needs this flag and the item count. */
+   *  itself. */
   isDraft: boolean;
-}
-
-function summarize(statuses: string[]): string {
-  if (statuses.length === 0) return "no items yet";
-  const counts = new Map<string, number>();
-  for (const s of statuses) counts.set(s, (counts.get(s) ?? 0) + 1);
-  return Array.from(counts.entries())
-    .map(([status, count]) => `${count} ${status}`)
-    .join(", ");
 }
 
 export function OrdersView({
@@ -179,9 +173,7 @@ export function OrdersView({
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-ui text-body-strong text-text-strong">{order.customerName}</span>
                 <span className="mt-0.5 block truncate font-ui text-small text-text-faint">
-                  {order.isDraft
-                    ? `Draft — ${order.itemStatuses.length} item${order.itemStatuses.length === 1 ? "" : "s"}`
-                    : summarize(order.itemStatuses)}
+                  By {order.creatorName}
                 </span>
               </span>
               {/* When the order was logged, not what state it's in — the
