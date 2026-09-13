@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { withCurrentOrganization } from "@/lib/tenancy";
 import { isUuid } from "@/lib/uuid";
+import { cn } from "@/lib/utils";
 import {
   orders,
   orderItems,
@@ -18,6 +19,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 function display(status: string): OrderItemStatus {
   return (status.charAt(0).toUpperCase() + status.slice(1)) as OrderItemStatus;
+}
+
+/** A line's extended price, formatted, or "—" when the product has no set
+ *  price. No currency suffix — the total below carries it once. Mirrors
+ *  new-order-wizard.tsx's lineAmount/formatPrice. */
+function lineAmount(productPrice: string | null, quantity: number): string {
+  return productPrice == null ? "—" : (Number(productPrice) * quantity).toLocaleString();
 }
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +62,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         productName: products.name,
         quantity: orderItems.quantity,
         status: orderItems.status,
+        price: products.price,
       })
       .from(orderItems)
       .innerJoin(products, eq(products.id, orderItems.productId))
@@ -85,6 +94,20 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   if (!data) notFound();
   const { order, items } = data;
+
+  // Same accounting as the wizard's docket (new-order-wizard.tsx): a null
+  // price can't be assumed to be 0, so it's tracked separately rather than
+  // silently under-totaling. Cancelled items are left out — they're not
+  // being fulfilled, so they're not part of what the Customer owes.
+  let priceTotal = 0;
+  let hasUnpricedItem = false;
+  for (const item of items) {
+    if (item.status === "cancelled") continue;
+    if (item.price == null) hasUnpricedItem = true;
+    else priceTotal += Number(item.price) * item.quantity;
+  }
+  const showAmounts = priceTotal > 0;
+  const totalText = `${priceTotal.toLocaleString()} MMK${hasUnpricedItem ? "+" : ""}`;
 
   return (
     <Screen>
@@ -136,18 +159,32 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {items.length === 0 ? (
               <EmptyState icon="package" title="Nothing on this order." body="Every item on it was cancelled." />
             ) : (
-              items.map((item) => (
-                <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-line-hairline p-3">
-                  <div>
-                    <p className="font-ui text-body-strong text-text-strong">{item.productName}</p>
-                    <p className="mt-0.5 font-ui text-small text-text-muted">
-                      {item.modifiers.length > 0 ? `${item.modifiers.join(", ")} · ` : ""}
-                      qty {item.quantity}
-                    </p>
+              <>
+                {items.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-line-hairline p-3">
+                    <div>
+                      <p className="font-ui text-body-strong text-text-strong">{item.productName}</p>
+                      <p className="mt-0.5 font-ui text-small text-text-muted">
+                        {item.modifiers.length > 0 ? `${item.modifiers.join(", ")} · ` : ""}
+                        qty {item.quantity}
+                        {showAmounts && item.status !== "cancelled" ? ` · ${lineAmount(item.price, item.quantity)}` : ""}
+                      </p>
+                    </div>
+                    <Badge status={display(item.status)} size="sm" />
                   </div>
-                  <Badge status={display(item.status)} size="sm" />
+                ))}
+                <div className="flex items-baseline justify-between pt-1">
+                  <span className="font-mono text-label tracking-label uppercase text-text-faint">Total</span>
+                  <span
+                    className={cn(
+                      "font-ui text-body-strong [font-variant-numeric:tabular-nums]",
+                      showAmounts ? "text-text-strong" : "text-text-faint",
+                    )}
+                  >
+                    {showAmounts ? totalText : "Not priced yet"}
+                  </span>
                 </div>
-              ))
+              </>
             )}
           </section>
         </div>
