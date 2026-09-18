@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Public_Sans, Martian_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { InstallPromptListener } from "@/components/install-prompt-listener";
 import "./globals.css";
 
 // The design system's two faces (see src/styles/tokens/typography.css):
@@ -81,6 +82,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           and only the page itself could ever reach the rest, which several
           real devices' touch scrolling didn't reliably do either. */}
       <body className="h-full flex flex-col overflow-x-hidden">
+        <InstallPromptListener />
         <NuqsAdapter>{children}</NuqsAdapter>
       </body>
     </html>
