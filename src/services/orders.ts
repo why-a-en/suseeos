@@ -104,9 +104,12 @@ export async function saveOrder(
   const notes = input.notes?.trim() || null;
 
   if (id) {
+    // customerId is included here (not just on the insert branch below) so
+    // resuming a draft and picking a different customer from the wizard's
+    // Customer step — reachable via Items' "Previous" — actually sticks.
     await ctx.tx
       .update(orders)
-      .set({ notes, ...(place ? { placedAt: new Date() } : {}) })
+      .set({ customerId: input.customerId, notes, ...(place ? { placedAt: new Date() } : {}) })
       .where(and(eq(orders.id, id), eq(orders.organizationId, ctx.organizationId)));
 
     // The wizard hands back the full pending set every save; reconcile by
