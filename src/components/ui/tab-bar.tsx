@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/icon";
 import { cn } from "@/lib/utils";
-import { fireHaptic } from "@/lib/haptics";
 
 export interface TabItem {
   href: string;
@@ -20,10 +19,10 @@ export interface TabItem {
  *  and selecting one is real navigation via Link, not client state — which
  *  also means a tab is a working link with no JS.
  *
- *  Press feedback + a light haptic, same tokens Button/Toggle use
- *  (`ease-spring` on release, `active:ease-standard` on press so the tap
- *  registers instantly rather than wobbling in) — a tab is tapped more than
- *  almost anything else in the app, so it's the last place to feel dead. */
+ *  Press feedback, same tokens Button/Toggle use (`ease-spring` on release,
+ *  `active:ease-standard` on press so the tap registers instantly rather
+ *  than wobbling in) — a tab is tapped more than almost anything else in
+ *  the app, so it's the last place to feel dead. */
 export function TabBar({ items, className }: { items: TabItem[]; className?: string }) {
   const pathname = usePathname();
   return (
@@ -37,7 +36,6 @@ export function TabBar({ items, className }: { items: TabItem[]; className?: str
           <Link
             key={it.href}
             href={it.href}
-            onPointerDown={() => fireHaptic("light")}
             className={cn(
               "ds-nav-link relative flex flex-col items-center justify-center gap-1",
               "transition-[color,scale] duration-fast ease-spring active:ease-standard active:scale-95",

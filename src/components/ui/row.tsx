@@ -1,11 +1,8 @@
-"use client";
-
 import type { MouseEventHandler, ReactNode } from "react";
 import Link from "next/link";
 
 import { Item } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
-import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
 
 /** The shared chrome behind every full-bleed list row (CustomerRow,
  *  ProductRow, OrderItemRow, the Orders log).
@@ -27,38 +24,18 @@ import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
  *  Pass one of `href` / `onClick`, never both — a row is either a
  *  destination or an action, and nesting a button inside an anchor is
  *  invalid HTML. `href` wins if both arrive, so a stray handler can't
- *  produce that nesting.
- *
- *  `haptic` only applies when the row is interactive (`href` or `onClick`)
- *  — a read-only row stays exactly as it was. The visual press itself is
- *  still the fill above, never a scale (same "reads as a glitch" reasoning);
- *  haptic is additive on top of it, not a replacement. `"use client"` is
- *  safe here the same way it is for Button: nothing in this file needs a
- *  non-serializable prop from a Server Component — the handler a
- *  `href`/`onClick` row needs already has to come from a Client Component
- *  today regardless. */
+ *  produce that nesting. */
 export function Row({
   href,
   onClick,
-  haptic,
   className,
   children,
 }: {
   href?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
-  /** Unset defaults to `"light"` whenever the row is interactive (`href` or
-   *  `onClick`); pass `false` to explicitly silence it. */
-  haptic?: HapticIntensity | false;
   children?: ReactNode;
   className?: string;
 }) {
-  const interactive = Boolean(href || onClick);
-  const hapticIntensity = haptic ?? (interactive ? "light" : false);
-
-  function handlePointerDown() {
-    if (hapticIntensity) fireHaptic(hapticIntensity);
-  }
-
   const shell = cn(
     // `min-w-0` is load-bearing on the `onClick` branch. A grid/flex item's
     // automatic minimum size is its min-content size, and a `<button>` won't
@@ -72,7 +49,7 @@ export function Row({
     // A full-bleed row highlights rather than scales — shrinking something
     // pinned to both screen edges reads as a glitch. `active:` is spelled out
     // alongside `hover:` because a touch never produces a hover.
-    interactive &&
+    (href || onClick) &&
       "cursor-pointer hover:bg-surface-hover active:bg-surface-hover focus-visible:bg-surface-hover focus-visible:shadow-[var(--focus-ring)] focus-visible:ring-0",
     className,
   );
@@ -80,7 +57,7 @@ export function Row({
   if (href) {
     return (
       <Item asChild data-slot="row" className={shell}>
-        <Link href={href} className="ds-nav-link" onPointerDown={handlePointerDown}>
+        <Link href={href} className="ds-nav-link">
           {children}
         </Link>
       </Item>
@@ -90,7 +67,7 @@ export function Row({
   if (onClick) {
     return (
       <Item asChild data-slot="row" className={shell}>
-        <button type="button" onClick={onClick} onPointerDown={handlePointerDown}>
+        <button type="button" onClick={onClick}>
           {children}
         </button>
       </Item>

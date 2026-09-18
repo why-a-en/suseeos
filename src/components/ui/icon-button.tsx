@@ -24,10 +24,8 @@ const GLYPH = { "icon-sm": 15, icon: 18, "icon-lg": 22 } as const;
  *  TopBar's primary action, ghost → everything else.
  *
  *  `href` renders via `<Button asChild>` — Slot merges Button's own props
- *  (including its `onPointerDown`, which is where `haptic` fires) onto the
- *  `<Link>` beneath, so a navigating icon button still gets the buzz with no
- *  extra plumbing here. (A ripple effect briefly lived in this branch as a
- *  hand-rolled `<Link>` on `buttonVariants`, since Slot can't inject a
+ *  onto the `<Link>` beneath. (A ripple effect briefly lived in this branch
+ *  as a hand-rolled `<Link>` on `buttonVariants`, since Slot can't inject a
  *  ripple span alongside a single child — pulled along with ripple itself;
  *  see button.tsx.) */
 function IconButton({

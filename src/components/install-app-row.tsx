@@ -77,7 +77,7 @@ export function InstallAppRow() {
         ) : null}
       </div>
       {!isIOS ? (
-        <Button size="sm" icon="download" haptic="light" onClick={install} className="shrink-0">
+        <Button size="sm" icon="download" onClick={install} className="shrink-0">
           Install
         </Button>
       ) : null}
