@@ -29,7 +29,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const canCreate = user.role !== "supplier";
 
   const params = await searchParams;
-  const dateWindow = resolveDateWindow(params);
+  // Today, not All — most visits are "what came in today", and the busier
+  // this list gets the more that an unfiltered load lags behind it.
+  const dateWindow = resolveDateWindow(params, undefined, "today");
 
   const filters: OrdersFilters = {
     from: dateWindow.from?.toISOString() ?? null,

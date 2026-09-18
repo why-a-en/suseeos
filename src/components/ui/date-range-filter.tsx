@@ -60,8 +60,15 @@ export function DateRangeFilter({ window: initial }: { window: DateWindow }) {
     setOpen(true);
   }
 
+  // Always writes the explicit value, even when it matches whatever the
+  // page's own default happens to be — that default differs per page (Orders
+  // defaults to "today", the Purchase Queue to "all"; see resolveDateWindow's
+  // `defaultRange`), so this component can't guess which preset is safe to
+  // represent as "no param" without silently reverting a different page's
+  // explicit choice back to its default. "Clear filter" below is the one
+  // action that actually resets to the page's default.
   function applyPreset(range: DateRange) {
-    void setParams({ range: range === "all" ? "" : range, from: "", to: "" });
+    void setParams({ range, from: "", to: "" });
     setOpen(false);
   }
 
