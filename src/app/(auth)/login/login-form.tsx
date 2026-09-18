@@ -37,7 +37,7 @@ export function LoginForm() {
           <Input ref={passwordRef} id="password" name="password" type="password" autoComplete="current-password" icon="lock" placeholder="••••••••" />
         </Field>
         {state?.error && <p className="font-ui text-small text-danger">{state.error}</p>}
-        <Button full type="submit" ripple disabled={pending} icon="log-in">
+        <Button full type="submit" disabled={pending} icon="log-in">
           {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>
@@ -61,7 +61,6 @@ export function LoginForm() {
                   type="button"
                   variant="secondary"
                   size="sm"
-                  ripple
                   className="shrink-0"
                   onClick={() => fillTestAccount(account.email, account.password)}
                 >

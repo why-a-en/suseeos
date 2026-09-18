@@ -134,7 +134,6 @@ export function ImageUploadField({
           variant="secondary"
           size="sm"
           icon="plus"
-          ripple
           // The Field's "Images" <label for> makes this focusable by label
           // click, which is the point — but a native <label> association
           // outranks a button's own text in accessible-name computation, so

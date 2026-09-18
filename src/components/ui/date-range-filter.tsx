@@ -130,10 +130,10 @@ export function DateRangeFilter({ window: initial }: { window: DateWindow }) {
           </SheetBody>
           <SheetFooter>
             <div className="grid gap-2">
-              <Button full icon="check" ripple disabled={!draft?.from} onClick={applyDraft}>
+              <Button full icon="check" disabled={!draft?.from} onClick={applyDraft}>
                 {draft?.from ? `Apply ${dateWindowLabel(resolveDateWindow({ from: toISODay(draft.from), to: toISODay(draft.to ?? draft.from) }))}` : "Pick a date range"}
               </Button>
-              <Button full variant="secondary" icon="x" ripple disabled={!filtering && !draft?.from} onClick={clearAll}>
+              <Button full variant="secondary" icon="x" disabled={!filtering && !draft?.from} onClick={clearAll}>
                 Clear filter
               </Button>
             </div>

@@ -176,9 +176,6 @@
   --animate-scrim-in: ds-scrim-in var(--dur-base) var(--ease-standard);
   --animate-scrim-out: ds-scrim-out var(--dur-fast) var(--ease-exit);
 
-  /* The opt-in tactile ripple — see ds-ripple in tokens/motion.css. */
-  --animate-ripple: ds-ripple var(--dur-base) var(--ease-standard);
-
   /* font family */
   --font-display: var(--font-display);
   --font-ui: var(--font-ui);

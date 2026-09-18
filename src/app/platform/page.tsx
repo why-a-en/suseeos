@@ -58,7 +58,7 @@ export default async function PlatformHome() {
 
         <div className="px-5 pt-6 pb-8">
           <form action={operatorLogoutAction}>
-            <Button full type="submit" variant="secondary" icon="log-out" ripple>
+            <Button full type="submit" variant="secondary" icon="log-out">
               Sign out
             </Button>
           </form>

@@ -38,7 +38,7 @@ export function ProductsView({ products, canCreate }: { products: ProductRowData
         title="Products"
         eyebrow={`${products.length} products`}
         right={
-          canCreate ? <IconButton icon="plus" label="Add product" href="/products/new" variant="solid" ripple /> : null
+          canCreate ? <IconButton icon="plus" label="Add product" href="/products/new" variant="solid" /> : null
         }
       />
       <Toolbar>

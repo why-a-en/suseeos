@@ -80,7 +80,7 @@ function SearchField({
         // invisible on a wide screen, but on a phone it's enough to make the
         // whole field overflow its row once the clear button appears.
         <InputGroupAddon align="inline-end" className="mr-0! pr-1">
-          <IconButton icon="x" label="Clear search" size="icon-sm" ripple onClick={onClear} disabled={props.disabled} />
+          <IconButton icon="x" label="Clear search" size="icon-sm" onClick={onClear} disabled={props.disabled} />
         </InputGroupAddon>
       ) : null}
     </InputGroup>
