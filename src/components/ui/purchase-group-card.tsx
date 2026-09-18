@@ -197,11 +197,11 @@ export function PurchaseGroupCard({
           primary-then-secondary footer shape used everywhere else full-
           width buttons stack in this app (see new-order-wizard.tsx). */}
       <div className="grid gap-2 border-t border-line-hairline p-3">
-        <Button full icon="check-check" ripple onClick={() => onPurchase?.(checkedLines.map((b) => b.orderItemId))} disabled={busy || checkedLines.length === 0}>
+        <Button full icon="check-check" onClick={() => onPurchase?.(checkedLines.map((b) => b.orderItemId))} disabled={busy || checkedLines.length === 0}>
           {purchasing ? "Marking…" : "Mark purchased"}
         </Button>
         {uncheckedLines.length > 0 ? (
-          <Button full variant="danger" icon={confirmingCancel ? "triangle-alert" : "x"} ripple onClick={handleCantSourceClick} disabled={busy}>
+          <Button full variant="danger" icon={confirmingCancel ? "triangle-alert" : "x"} onClick={handleCantSourceClick} disabled={busy}>
             {cantSourcing ? "Marking…" : confirmingCancel ? "Tap again to confirm" : "Can't source the rest"}
           </Button>
         ) : null}

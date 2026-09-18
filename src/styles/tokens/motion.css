@@ -66,15 +66,6 @@
   to   { opacity: 0; }
 }
 
-/* The opt-in tactile ripple (Button/Row `ripple` prop, tactile-ripple.tsx).
-   Expands and fades from the touch/click point — a decelerate, not a
-   bounce, so it uses --ease-standard rather than --ease-spring; the spring
-   belongs to the press-scale it accompanies, not this. */
-@keyframes ds-ripple {
-  from { transform: scale(0);   opacity: 0.16; }
-  to   { transform: scale(2.5); opacity: 0; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-instant: 0ms; --dur-fast: 0ms; --dur-base: 0ms; --dur-sheet: 0ms; }
   * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }

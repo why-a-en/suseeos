@@ -7,8 +7,6 @@ import { Slot } from "radix-ui";
 import { cn } from "@/lib/utils";
 import { Icon, type IconName } from "@/components/icon";
 import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
-import { useRipple } from "@/lib/use-ripple";
-import { TactileRipple } from "@/components/ui/tactile-ripple";
 
 /** The system is monochrome, so press is *felt*, not coloured: primary opens
  *  a soft ring under the cursor (--ring-soft) and widens its own tracking a
@@ -17,11 +15,12 @@ import { TactileRipple } from "@/components/ui/tactile-ripple";
  *  which also makes press register on touch (the mouse-event-only version
  *  this replaces never did).
  *
- *  `haptic`/`ripple` (below) are additive, opt-in exceptions to that "no JS"
- *  rule — a vibration and a ripple's pointer coordinates are the two things
- *  CSS genuinely can't do. Neither touches the `:active` scale mechanism
- *  itself: `haptic`/`ripple` only swap `ease-standard` for the springier
- *  `ease-spring` and deepen the scale a touch, still driven by `:active`.
+ *  `haptic` (below) is an additive, opt-in exception to that "no JS" rule —
+ *  a vibration is the one thing CSS genuinely can't do. It doesn't touch the
+ *  `:active` scale mechanism itself: it only swaps `ease-standard` for the
+ *  springier `ease-spring` and deepens the scale a touch, still driven by
+ *  `:active`. (A ripple effect briefly lived here too and was pulled — it
+ *  read as a stray flash rather than an intentional effect.)
  *  `"use client"` here is safe — no Server Component call site passes a
  *  non-serializable prop (onClick etc.) to Button today, only `type`,
  *  `icon`/`iconAfter`, and children (all serializable), so this doesn't
@@ -100,7 +99,6 @@ function Button({
   iconAfter,
   asChild = false,
   haptic,
-  ripple = false,
   onPointerDown,
   children,
   ...props
@@ -118,23 +116,15 @@ function Button({
      *  Unset uses the variant's own default (primary "light", danger
      *  "strong", otherwise off) — pass `false` to explicitly silence it. */
     haptic?: HapticIntensity | false;
-    /** Opt-in Material-style ripple from the pointer's own coordinates.
-     *  Off by default everywhere — apply it deliberately to the handful of
-     *  primary/confirm/destructive actions that should feel intentional,
-     *  not to every button in the app. No effect in `asChild` mode (Slot
-     *  clones a single child, same limitation as the danger hatch above). */
-    ripple?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : "button";
   const iconSize = size === "sm" ? 15 : 17;
   const resolvedVariant = variant ?? "primary";
   const hapticIntensity = haptic ?? defaultHapticFor(resolvedVariant);
-  const tactile = !asChild && (hapticIntensity !== false || ripple);
-  const { ripples, onPointerDown: onRipplePointerDown, clearRipple } = useRipple();
+  const tactile = !asChild && hapticIntensity !== false;
 
   function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     if (hapticIntensity) fireHaptic(hapticIntensity);
-    if (ripple && !asChild) onRipplePointerDown(e);
     onPointerDown?.(e);
   }
 
@@ -144,11 +134,7 @@ function Button({
       data-variant={variant ?? "primary"}
       type={asChild ? undefined : ((props.type ?? "button") as "button" | "submit" | "reset")}
       onPointerDown={handlePointerDown}
-      className={cn(
-        buttonVariants({ variant, size, full, className }),
-        tactile && "ease-spring active:scale-[0.96]",
-        ripple && !asChild && "relative overflow-hidden",
-      )}
+      className={cn(buttonVariants({ variant, size, full, className }), tactile && "ease-spring active:scale-[0.96]")}
       {...props}
     >
       {asChild ? (
@@ -167,7 +153,6 @@ function Button({
           {icon ? <Icon name={icon} size={iconSize} /> : null}
           {children}
           {iconAfter ? <Icon name={iconAfter} size={iconSize} /> : null}
-          {ripple ? <TactileRipple ripples={ripples} onDone={clearRipple} /> : null}
         </>
       )}
     </Comp>

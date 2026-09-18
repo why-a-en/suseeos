@@ -93,7 +93,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         backHref="/products"
         right={
           <form action={setProductStatusAction.bind(null, product.id, product.status === "active" ? "archived" : "active")}>
-            <Button type="submit" variant="ghost" size="sm" ripple>
+            <Button type="submit" variant="ghost" size="sm">
               {product.status === "active" ? "Archive" : "Unarchive"}
             </Button>
           </form>
@@ -137,7 +137,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               </a>
             )}
 
-            <Button full type="submit" icon="check" ripple>
+            <Button full type="submit" icon="check">
               Save changes
             </Button>
           </form>
@@ -177,7 +177,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                         </CheckboxField>
                       ))}
                     </div>
-                    <Button type="submit" variant="ghost" size="sm" ripple>
+                    <Button type="submit" variant="ghost" size="sm">
                       Add selected
                     </Button>
                   </form>

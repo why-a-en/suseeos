@@ -133,7 +133,7 @@ export function OrdersView({
         brand
         title="Orders"
         right={
-          canCreate ? <IconButton icon="plus" label="New order" href="/orders/new" variant="solid" ripple /> : null
+          canCreate ? <IconButton icon="plus" label="New order" href="/orders/new" variant="solid" /> : null
         }
       />
       {/* Search and the date trigger share one row — the date control stays
@@ -202,7 +202,7 @@ export function OrdersView({
             phone, and the rows are the full width of it. */}
         {cursor ? (
           <div className="px-5 py-4">
-            <Button full variant="secondary" icon="chevron-down" ripple disabled={isLoadingMore} onClick={loadMore}>
+            <Button full variant="secondary" icon="chevron-down" disabled={isLoadingMore} onClick={loadMore}>
               {isLoadingMore ? "Loading…" : "Load more"}
             </Button>
           </div>

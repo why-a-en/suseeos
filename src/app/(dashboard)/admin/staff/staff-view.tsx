@@ -112,7 +112,7 @@ export function StaffView({
         )}
 
         <div className="px-5 pt-5 pb-8">
-          <Button full variant="secondary" icon="user-plus" ripple onClick={() => setAdding(true)}>
+          <Button full variant="secondary" icon="user-plus" onClick={() => setAdding(true)}>
             Add staff
           </Button>
         </div>
@@ -157,7 +157,7 @@ function AddStaffForm({ onDone }: { onDone: () => void }) {
           <InviteSent email={state.invitedEmail} />
         </SheetBody>
         <SheetFooter>
-          <Button full ripple onClick={onDone}>
+          <Button full onClick={onDone}>
             Done
           </Button>
         </SheetFooter>
@@ -196,7 +196,7 @@ function AddStaffForm({ onDone }: { onDone: () => void }) {
         </SheetBody>
         <SheetFooter>
           {/* Can't submit an address that hasn't cleared the live check. */}
-          <Button full type="submit" ripple disabled={pending || emailCheck.status !== "valid"}>
+          <Button full type="submit" disabled={pending || emailCheck.status !== "valid"}>
             {pending ? "Sending…" : "Send invitation"}
           </Button>
         </SheetFooter>
@@ -268,7 +268,7 @@ function ManageStaffSheet({
             <InvitationSent email={resetSentTo} />
           </SheetBody>
           <SheetFooter>
-            <Button full ripple onClick={close}>
+            <Button full onClick={close}>
               Done
             </Button>
           </SheetFooter>
@@ -301,7 +301,6 @@ function ManageStaffSheet({
                 <Button
                   full
                   variant="secondary"
-                  ripple
                   disabled={pending}
                   onClick={() =>
                     startTransition(async () => {
@@ -320,7 +319,6 @@ function ManageStaffSheet({
                 <Button
                   full
                   variant="secondary"
-                  ripple
                   disabled={pending}
                   onClick={() =>
                     run(() =>
@@ -340,7 +338,6 @@ function ManageStaffSheet({
                 <Button
                   full
                   variant="danger"
-                  ripple
                   disabled={pending}
                   onClick={() => run(() => removeStaffAction(member.memberId))}
                 >
@@ -402,10 +399,10 @@ function ManageInviteSheet({
                 Not yet accepted — nothing about this person exists beyond this invitation.
               </p>
               <div className="grid gap-3">
-                <Button full variant="secondary" ripple disabled={pending} onClick={resend}>
+                <Button full variant="secondary" disabled={pending} onClick={resend}>
                   Resend
                 </Button>
-                <Button full variant="danger" ripple disabled={pending} onClick={cancel}>
+                <Button full variant="danger" disabled={pending} onClick={cancel}>
                   Cancel invitation
                 </Button>
               </div>

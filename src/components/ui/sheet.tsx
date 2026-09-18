@@ -104,7 +104,7 @@ function SheetHeader({
         </div>
         {dismissible ? (
           <SheetClose asChild>
-            <IconButton icon="x" label="Close" size="icon-sm" ripple className="-mr-1.5" />
+            <IconButton icon="x" label="Close" size="icon-sm" className="-mr-1.5" />
           </SheetClose>
         ) : null}
       </div>
