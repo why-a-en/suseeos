@@ -22,6 +22,9 @@ const FONT_SIZES = [
 /** And the tracking scale, from `--tracking-*`. */
 const TRACKING = ["display", "screen-title", "label", "metric"] as const;
 
+/** And the named easing curves, from `--ease-*` (motion.css). */
+const EASE = ["standard", "exit", "spring"] as const;
+
 /**
  * The standard shadcn/ui helper — merges Tailwind classes so later ones win
  * over earlier conflicting ones instead of just concatenating.
@@ -34,12 +37,19 @@ const TRACKING = ["display", "screen-title", "label", "metric"] as const;
  * — therefore lost its size silently and inherited whatever the parent used.
  * Badge rendered its 10px mono micro-label at 15px body size for exactly this
  * reason. Declaring the scales here fixes every such pairing at once.
+ *
+ * Same reasoning covers `ease`: without it, `cn("ease-standard", "ease-spring")`
+ * — Button's tactile-easing override — would keep both classes (tailwind-merge
+ * has no idea they're the same CSS property) and let source order in the
+ * compiled stylesheet decide the winner instead of the later argument, which
+ * is exactly the kind of silent, hard-to-notice bug the font-size one was.
  */
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
       "font-size": [{ text: [...FONT_SIZES] }],
       tracking: [{ tracking: [...TRACKING] }],
+      ease: [{ ease: [...EASE] }],
     },
   },
 });

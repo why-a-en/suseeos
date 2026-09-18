@@ -750,6 +750,7 @@ export function NewOrderWizard({
         <Button
           full
           icon="user-plus"
+          ripple
           disabled={!newCustomerName || !newCustomerPhone || !newCustomerAddress || isPending}
           onClick={handleCreateCustomer}
           className="flex-1 rounded-full shadow-raised"
@@ -931,6 +932,7 @@ export function NewOrderWizard({
         <Button
           full
           icon="plus"
+          ripple
           disabled={!newProductName.trim() || !newProductDescription.trim() || !newProductPrice.trim() || isPending}
           onClick={handleCreateProduct}
           className="flex-1 rounded-full shadow-raised"
@@ -1021,7 +1023,7 @@ export function NewOrderWizard({
         <Button variant="secondary" icon="arrow-left" onClick={() => setStep("items")}>
           Previous
         </Button>
-        <Button full icon="check" disabled={!totalItemCount || isPending} onClick={() => handleSave(true)} className="flex-1 rounded-full shadow-raised">
+        <Button full icon="check" ripple disabled={!totalItemCount || isPending} onClick={() => handleSave(true)} className="flex-1 rounded-full shadow-raised">
           {isPending ? "Saving…" : "Place order"}
         </Button>
       </div>
@@ -1083,7 +1085,7 @@ export function NewOrderWizard({
             </AlertDialogDescription>
           </AlertDialogBody>
           <AlertDialogFooter className="grid gap-2">
-            <Button full variant="danger" disabled={isPending} onClick={handleDeleteDraft}>
+            <Button full variant="danger" ripple disabled={isPending} onClick={handleDeleteDraft}>
               Delete draft
             </Button>
             <AlertDialogCancel>Keep it</AlertDialogCancel>

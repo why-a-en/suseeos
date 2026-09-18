@@ -1,9 +1,14 @@
+"use client";
+
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 import { Icon, type IconName } from "@/components/icon";
+import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
+import { useRipple } from "@/lib/use-ripple";
+import { TactileRipple } from "@/components/ui/tactile-ripple";
 
 /** The system is monochrome, so press is *felt*, not coloured: primary opens
  *  a soft ring under the cursor (--ring-soft) and widens its own tracking a
@@ -11,6 +16,16 @@ import { Icon, type IconName } from "@/components/icon";
  *  None of that needs JS state — :hover/:active/:disabled cover it natively,
  *  which also makes press register on touch (the mouse-event-only version
  *  this replaces never did).
+ *
+ *  `haptic`/`ripple` (below) are additive, opt-in exceptions to that "no JS"
+ *  rule — a vibration and a ripple's pointer coordinates are the two things
+ *  CSS genuinely can't do. Neither touches the `:active` scale mechanism
+ *  itself: `haptic`/`ripple` only swap `ease-standard` for the springier
+ *  `ease-spring` and deepen the scale a touch, still driven by `:active`.
+ *  `"use client"` here is safe — no Server Component call site passes a
+ *  non-serializable prop (onClick etc.) to Button today, only `type`,
+ *  `icon`/`iconAfter`, and children (all serializable), so this doesn't
+ *  break any `<form action={serverAction}><Button type="submit">` usage.
  *
  *  `disabled:pointer-events-none` is load-bearing beyond the cursor: it also
  *  suppresses every hover rule below, so a disabled button can't light up.
@@ -64,6 +79,18 @@ const buttonVariants = cva(
   },
 );
 
+/** Sensible per-variant default for `haptic` when the prop is left
+ *  unset — `false` (not `undefined`) always means "explicitly off",
+ *  distinct from "unset, use the variant's default". Primary is the button
+ *  an agent taps to make something happen; danger is a destructive/confirm
+ *  action, so it gets the stronger buzz. Secondary/ghost stay silent unless
+ *  a call site opts in — most of those are "Back", "Cancel", low-stakes. */
+function defaultHapticFor(variant: NonNullable<VariantProps<typeof buttonVariants>["variant"]>): HapticIntensity | false {
+  if (variant === "danger") return "strong";
+  if (variant === "primary") return "light";
+  return false;
+}
+
 function Button({
   className,
   variant,
@@ -72,6 +99,9 @@ function Button({
   icon,
   iconAfter,
   asChild = false,
+  haptic,
+  ripple = false,
+  onPointerDown,
   children,
   ...props
 }: React.ComponentProps<"button"> &
@@ -84,16 +114,41 @@ function Button({
     /** Icon rendered before the label. */
     icon?: IconName;
     iconAfter?: IconName;
+    /** `navigator.vibrate` pulse on pointerdown (src/lib/haptics.ts).
+     *  Unset uses the variant's own default (primary "light", danger
+     *  "strong", otherwise off) — pass `false` to explicitly silence it. */
+    haptic?: HapticIntensity | false;
+    /** Opt-in Material-style ripple from the pointer's own coordinates.
+     *  Off by default everywhere — apply it deliberately to the handful of
+     *  primary/confirm/destructive actions that should feel intentional,
+     *  not to every button in the app. No effect in `asChild` mode (Slot
+     *  clones a single child, same limitation as the danger hatch above). */
+    ripple?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : "button";
   const iconSize = size === "sm" ? 15 : 17;
+  const resolvedVariant = variant ?? "primary";
+  const hapticIntensity = haptic ?? defaultHapticFor(resolvedVariant);
+  const tactile = !asChild && (hapticIntensity !== false || ripple);
+  const { ripples, onPointerDown: onRipplePointerDown, clearRipple } = useRipple();
+
+  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (hapticIntensity) fireHaptic(hapticIntensity);
+    if (ripple && !asChild) onRipplePointerDown(e);
+    onPointerDown?.(e);
+  }
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant ?? "primary"}
       type={asChild ? undefined : ((props.type ?? "button") as "button" | "submit" | "reset")}
-      className={cn(buttonVariants({ variant, size, full, className }))}
+      onPointerDown={handlePointerDown}
+      className={cn(
+        buttonVariants({ variant, size, full, className }),
+        tactile && "ease-spring active:scale-[0.96]",
+        ripple && !asChild && "relative overflow-hidden",
+      )}
       {...props}
     >
       {asChild ? (
@@ -112,6 +167,7 @@ function Button({
           {icon ? <Icon name={icon} size={iconSize} /> : null}
           {children}
           {iconAfter ? <Icon name={iconAfter} size={iconSize} /> : null}
+          {ripple ? <TactileRipple ripples={ripples} onDone={clearRipple} /> : null}
         </>
       )}
     </Comp>
