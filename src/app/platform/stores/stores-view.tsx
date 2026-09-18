@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ToastFromQuery } from "@/components/toast-from-query";
 import { Screen, ScrollBody } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -39,6 +40,7 @@ export function StoresView({
 
   return (
     <Screen>
+      <ToastFromQuery param="storeDeleted" message="Store deleted." />
       <TopBar backHref="/platform" title="Stores" eyebrow="Operator" />
       <ScrollBody>
         <SectionHeader right={`${stores.length}`}>All Stores</SectionHeader>

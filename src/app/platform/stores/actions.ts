@@ -153,7 +153,7 @@ export async function deleteStoreAction(storeId: string): Promise<PlatformAction
     throw error;
   }
   revalidatePath("/platform/stores");
-  redirect("/platform/stores");
+  redirect("/platform/stores?storeDeleted=1");
 }
 
 /** Revokes a still-pending invitation issued from `/platform`. */

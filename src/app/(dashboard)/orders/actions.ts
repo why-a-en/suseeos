@@ -73,7 +73,7 @@ export async function saveOrderAction(input: SaveOrderInput): Promise<{ orderId:
   // those views on every save, not only when placing.
   revalidatePath("/purchase-queue");
   revalidatePath("/parcels");
-  if (placed) redirect("/orders");
+  if (placed) redirect("/orders?placed=1");
   return { orderId };
 }
 
@@ -83,7 +83,7 @@ export async function deleteDraftAction(orderId: string): Promise<void> {
   revalidatePath("/orders");
   revalidatePath("/purchase-queue");
   revalidatePath("/parcels");
-  redirect("/orders");
+  redirect("/orders?draftDeleted=1");
 }
 
 /**
