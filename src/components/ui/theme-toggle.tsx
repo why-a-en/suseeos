@@ -31,6 +31,13 @@ export function ThemeToggle({ className }: { className?: string }) {
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
+    // Keeps the PWA status-bar/splash colour (viewport.themeColor,
+    // layout.tsx) matching whichever theme is actually on screen — that tag
+    // tracks this app's own override, not the OS's prefers-color-scheme, so
+    // nothing updates it automatically. Values are the dark/light
+    // --surface-page hex (see layout.tsx's comment on where they come from).
+    const meta = document.querySelector('meta[name="theme-color"]');
+    meta?.setAttribute("content", t === "light" ? "#f2f1ee" : "#12110f");
     try {
       localStorage.setItem("theme", t);
     } catch {
