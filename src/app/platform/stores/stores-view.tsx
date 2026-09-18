@@ -69,7 +69,7 @@ export function StoresView({
         )}
 
         <div className="px-5 pt-5 pb-8">
-          <Button full variant="secondary" icon="plus" onClick={() => setCreating(true)}>
+          <Button full variant="secondary" icon="plus" ripple onClick={() => setCreating(true)}>
             New Store
           </Button>
         </div>
@@ -119,7 +119,7 @@ function NewStoreForm({ onDone }: { onDone: () => void }) {
           </div>
         </SheetBody>
         <SheetFooter>
-          <Button full onClick={onDone}>
+          <Button full ripple onClick={onDone}>
             Done
           </Button>
         </SheetFooter>
@@ -159,7 +159,7 @@ function NewStoreForm({ onDone }: { onDone: () => void }) {
           {/* Can't submit an address that hasn't cleared the live check —
               "checking" and "invalid" both block, same as an empty
               required field already would. */}
-          <Button full type="submit" disabled={pending || emailCheck.status !== "valid"}>
+          <Button full type="submit" ripple disabled={pending || emailCheck.status !== "valid"}>
             {pending ? "Creating…" : "Create Store"}
           </Button>
         </SheetFooter>

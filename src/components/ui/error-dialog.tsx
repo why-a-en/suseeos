@@ -63,7 +63,7 @@ export function ErrorDialog({
         ) : null}
 
         <AlertDialogFooter>
-          <AlertDialogAction onClick={onOk}>OK</AlertDialogAction>
+          <AlertDialogAction ripple onClick={onOk}>OK</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

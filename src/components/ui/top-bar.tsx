@@ -45,7 +45,7 @@ export function TopBar({
       )}
       style={{ minHeight: "var(--bar-top-h)" }}
     >
-      {onBack ? <IconButton icon="arrow-left" label="Back" onClick={onBack} size="icon-sm" className="-ml-2" /> : null}
+      {onBack ? <IconButton icon="arrow-left" label="Back" onClick={onBack} size="icon-sm" ripple className="-ml-2" /> : null}
       {!onBack && backHref ? <IconButton icon="arrow-left" label="Back" href={backHref} size="icon-sm" className="-ml-2" /> : null}
       {brand && !hasBack ? <Logo size={20} className="mr-0.5" /> : null}
       <div className="min-w-0 flex-1">

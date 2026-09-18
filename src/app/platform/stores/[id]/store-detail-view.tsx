@@ -93,6 +93,7 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
           <Button
             full
             variant={store.status === "suspended" ? "secondary" : "danger"}
+            ripple
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
@@ -112,6 +113,7 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
           <Button
             full
             variant="danger"
+            ripple
             disabled={pending || !store.canDelete}
             onClick={() => setConfirmDelete(true)}
           >
@@ -181,7 +183,7 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
             <Button full variant="danger" ripple disabled={pending} onClick={handleDelete}>
               Delete Store
             </Button>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel ripple>Keep it</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -222,6 +224,7 @@ function MemberSheet({
                 full
                 variant="secondary"
                 icon="user"
+                ripple
                 disabled={pending || storeSuspended}
                 onClick={() =>
                   startTransition(async () => {
@@ -289,10 +292,10 @@ function InviteSheet({
                 Not yet accepted — nothing about this person exists beyond this invitation.
               </p>
               <div className="grid gap-3">
-                <Button full variant="secondary" disabled={pending} onClick={resend}>
+                <Button full variant="secondary" ripple disabled={pending} onClick={resend}>
                   Resend
                 </Button>
-                <Button full variant="danger" disabled={pending} onClick={cancel}>
+                <Button full variant="danger" ripple disabled={pending} onClick={cancel}>
                   Cancel invitation
                 </Button>
               </div>

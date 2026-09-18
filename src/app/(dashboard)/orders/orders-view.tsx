@@ -202,7 +202,7 @@ export function OrdersView({
             phone, and the rows are the full width of it. */}
         {cursor ? (
           <div className="px-5 py-4">
-            <Button full variant="secondary" icon="chevron-down" disabled={isLoadingMore} onClick={loadMore}>
+            <Button full variant="secondary" icon="chevron-down" ripple disabled={isLoadingMore} onClick={loadMore}>
               {isLoadingMore ? "Loading…" : "Load more"}
             </Button>
           </div>

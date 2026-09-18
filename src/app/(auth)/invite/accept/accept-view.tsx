@@ -44,7 +44,7 @@ export function AcceptView({
           open this invitation link again from your email to accept it.
         </p>
         <form action={logoutAction}>
-          <Button full type="submit" variant="secondary" icon="log-out">
+          <Button full type="submit" variant="secondary" icon="log-out" ripple>
             Sign out
           </Button>
         </form>
@@ -68,7 +68,7 @@ export function AcceptView({
           this invitation link again to accept it.
         </p>
         <Link href="/login">
-          <Button full icon="log-in">
+          <Button full icon="log-in" ripple>
             Sign in
           </Button>
         </Link>
@@ -87,7 +87,7 @@ function AcceptAsCurrentUser({ token, lead }: { token: string; lead: string }) {
       <p className="font-ui text-body-strong text-text-strong">{lead}</p>
       <input type="hidden" name="token" value={token} />
       {state?.error && <p className="font-ui text-small text-danger">{state.error}</p>}
-      <Button full type="submit" disabled={pending} icon="check">
+      <Button full type="submit" ripple disabled={pending} icon="check">
         {pending ? "Joining…" : "Accept invitation"}
       </Button>
     </form>
@@ -116,7 +116,7 @@ function AcceptAsNewUser({ token, email, lead }: { token: string; email: string;
         />
       </Field>
       {state?.error && <p className="font-ui text-small text-danger">{state.error}</p>}
-      <Button full type="submit" disabled={pending} icon="check">
+      <Button full type="submit" ripple disabled={pending} icon="check">
         {pending ? "Setting up…" : "Accept invitation"}
       </Button>
     </form>

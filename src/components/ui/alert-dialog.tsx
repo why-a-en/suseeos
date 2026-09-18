@@ -100,7 +100,10 @@ function AlertDialogDescription({ className, ...props }: React.ComponentProps<ty
   );
 }
 
-function AlertDialogAction({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
+function AlertDialogAction({
+  className,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & Pick<React.ComponentProps<typeof Button>, "ripple" | "haptic">) {
   return (
     <AlertDialogPrimitive.Action asChild>
       <Button full className={className} {...props} />
@@ -108,7 +111,10 @@ function AlertDialogAction({ className, ...props }: React.ComponentProps<typeof 
   );
 }
 
-function AlertDialogCancel({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
+function AlertDialogCancel({
+  className,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> & Pick<React.ComponentProps<typeof Button>, "ripple" | "haptic">) {
   return (
     <AlertDialogPrimitive.Cancel asChild>
       <Button full variant="secondary" className={className} {...props} />

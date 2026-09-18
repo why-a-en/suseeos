@@ -184,6 +184,7 @@ function UserSheet({
                     full
                     variant="secondary"
                     icon="lock"
+                    ripple
                     disabled={pending}
                     onClick={() =>
                       startTransition(async () => {
@@ -205,6 +206,7 @@ function UserSheet({
                   full
                   variant="secondary"
                   icon="user"
+                  ripple
                   disabled={!canImpersonate || pending}
                   onClick={() =>
                     startTransition(async () => {

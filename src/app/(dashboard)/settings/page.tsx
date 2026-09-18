@@ -71,7 +71,7 @@ export default async function SettingsPage() {
 
         <div className="px-5 pt-5 pb-8">
           <form action={logoutAction}>
-            <Button full type="submit" variant="secondary" icon="log-out">
+            <Button full type="submit" variant="secondary" icon="log-out" ripple>
               Sign out
             </Button>
           </form>

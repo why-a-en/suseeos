@@ -55,7 +55,7 @@ export function ModifierFieldsList({
               Modifier{blocks.length > 1 ? ` ${index + 1}` : ""}
             </span>
             {blocks.length > 1 && (
-              <IconButton icon="x" label="Remove this modifier" size="icon-sm" onClick={() => removeBlock(id)} />
+              <IconButton icon="x" label="Remove this modifier" size="icon-sm" ripple onClick={() => removeBlock(id)} />
             )}
           </div>
           <Field label="Name" hint="What varies — size, colour, material">

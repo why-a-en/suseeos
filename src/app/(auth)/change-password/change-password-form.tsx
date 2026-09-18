@@ -27,7 +27,7 @@ export function ChangePasswordForm({ forced }: { forced: boolean }) {
         <Input name="confirmPassword" type="password" autoComplete="new-password" icon="lock" placeholder="••••••••" />
       </Field>
       {state?.error && <p className="font-ui text-small text-danger">{state.error}</p>}
-      <Button full type="submit" disabled={pending}>
+      <Button full type="submit" ripple disabled={pending}>
         {pending ? "Saving…" : "Change password"}
       </Button>
     </form>
