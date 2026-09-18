@@ -41,11 +41,15 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except static assets, Next internals, and the PWA manifest/
-  // icon files (manifest.ts, icon.png, apple-icon.png — see app/). Those
+  // icon files (manifest.ts; apple-icon-dark.png/apple-icon-light.png,
+  // public/, referenced directly from layout.tsx's `icons` metadata). Those
   // have to be fetchable with no session cookie at all: Chrome's
-  // installability check (and iOS reading apple-icon.png for "Add to Home
-  // Screen") both run before anyone is logged in, and a redirect to /login
-  // in place of the real JSON/PNG makes the manifest look broken — no
-  // install prompt ever fires, silently, with no error anywhere to notice.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icon.png|apple-icon.png|icons/).*)"],
+  // installability check (and iOS reading the apple-touch-icon for "Add to
+  // Home Screen") both run before anyone is logged in, and a redirect to
+  // /login in place of the real JSON/PNG makes the manifest look broken —
+  // no install prompt ever fires, silently, with no error anywhere to
+  // notice.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon-dark.png|apple-icon-light.png|icons/).*)",
+  ],
 };

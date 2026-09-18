@@ -25,13 +25,34 @@ export const metadata: Metadata = {
   description: "Product catalog and daily order coordination for Support Agents and Suppliers.",
   // iOS Safari never reads manifest.ts for install behaviour — it wants its
   // own meta tags. `capable` is what makes "Add to Home Screen" launch
-  // without Safari's own chrome (the actual "PWA" part on iOS); apple-icon.png
-  // (file convention, this same directory) supplies the home-screen icon,
-  // since iOS also ignores the manifest's `icons` array.
+  // without Safari's own chrome (the actual "PWA" part on iOS).
   appleWebApp: {
     capable: true,
     title: "SuSeeOS",
     statusBarStyle: "black-translucent",
+  },
+  // Explicit `icons` (rather than the app/icon.png + app/apple-icon.png file
+  // convention, which only ever emits one static tag each) because iOS 18+
+  // and modern browser tab favicons both support alternate icon appearances
+  // via a `media` query per <link> — the one real, cross-platform way to
+  // have the *installed app's* icon itself follow system light/dark mode,
+  // not just the in-app UI. Dark listed first: an iOS/browser version old
+  // enough to ignore `media` entirely just takes the first tag, which
+  // should be the one matching this app's own default theme.
+  //
+  // Android has no equivalent — the Web Manifest spec's `icons` array (see
+  // manifest.ts) has no `media` field, and no mainstream browser supports
+  // swapping a PWA's home-screen icon by system theme — so that one stays a
+  // single fixed (dark) icon regardless of the device's theme.
+  icons: {
+    icon: [
+      { url: "/apple-icon-dark.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/apple-icon-light.png", media: "(prefers-color-scheme: light)" },
+    ],
+    apple: [
+      { url: "/apple-icon-dark.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/apple-icon-light.png", media: "(prefers-color-scheme: light)" },
+    ],
   },
 };
 
