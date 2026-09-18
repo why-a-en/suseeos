@@ -73,14 +73,19 @@ export function endOfDay(date: Date): Date {
   return d;
 }
 
-function parseRange(value: string | undefined | null): DateRange {
-  return DATE_RANGES.includes(value as DateRange) ? (value as DateRange) : "all";
+function parseRange(value: string | undefined | null, fallback: DateRange): DateRange {
+  return DATE_RANGES.includes(value as DateRange) ? (value as DateRange) : fallback;
 }
 
-/** Narrows untrusted search params into a window both pages can query with. */
+/** Narrows untrusted search params into a window both pages can query with.
+ *  `defaultRange` is what an empty/missing `range` resolves to — the Orders
+ *  log wants that to be "today" (see orders/page.tsx), while the Purchase
+ *  Queue keeps the original "all". An explicit `?range=` value always wins
+ *  regardless, so this only matters on a fresh visit with no params. */
 export function resolveDateWindow(
   params: { range?: string; from?: string; to?: string },
   now: Date = new Date(),
+  defaultRange: DateRange = "all",
 ): DateWindow {
   const from = parseISODay(params.from);
   const to = parseISODay(params.to);
@@ -94,7 +99,7 @@ export function resolveDateWindow(
     return { range: "all", from: startOfDay(a), to: endOfDay(b), custom: true };
   }
 
-  const range = parseRange(params.range);
+  const range = parseRange(params.range, defaultRange);
   if (range === "all") return { range, from: null, to: null, custom: false };
 
   const start = startOfDay(now);
