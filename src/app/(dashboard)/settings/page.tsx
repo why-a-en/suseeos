@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Row } from "@/components/ui/row";
 import { Icon } from "@/components/icon";
+import { InstallAppRow } from "@/components/install-app-row";
 import { logoutAction } from "../actions";
 
 // Phase-1 scope only: the design kit's fuller SettingsScreen also has a
@@ -53,6 +54,7 @@ export default async function SettingsPage() {
           <span>Theme</span>
           <ThemeToggle />
         </div>
+        <InstallAppRow />
 
         <SectionHeader>Session</SectionHeader>
         <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
