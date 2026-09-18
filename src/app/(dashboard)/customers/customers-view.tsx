@@ -72,7 +72,7 @@ export function CustomersView({ customers }: { customers: CustomerRowData[] }) {
         backHref="/home"
         title="Customers"
         eyebrow={`${rows.length} customer${rows.length === 1 ? "" : "s"}`}
-        right={<IconButton icon="user-plus" label="Add customer" variant="solid" onClick={() => setOpen(true)} />}
+        right={<IconButton icon="user-plus" label="Add customer" variant="solid" ripple onClick={() => setOpen(true)} />}
       />
       <Toolbar>
         <SearchField value={q} onChange={(e) => setQ(e.target.value)} onClear={() => setQ("")} placeholder="Name or phone" />
@@ -103,7 +103,7 @@ export function CustomersView({ customers }: { customers: CustomerRowData[] }) {
               <Field label="Address" required hint="Needed to ship the parcel once it arrives.">
                 <Textarea icon="map-pin" rows={2} autoComplete="street-address" placeholder="House, street, township, city" value={address} onChange={(e) => setAddress(e.target.value)} />
               </Field>
-              <Button full icon="user-plus" disabled={!name || !phone || !address || isPending} onClick={handleCreate}>
+              <Button full icon="user-plus" ripple disabled={!name || !phone || !address || isPending} onClick={handleCreate}>
                 {isPending ? "Creating…" : "Create customer"}
               </Button>
             </div>

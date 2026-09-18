@@ -162,13 +162,14 @@ export function ParcelsView({ items, status: initialStatus }: { items: ParcelIte
           <SheetFooter>
             {open ? (
               <div className="grid gap-2">
-                <Button full icon="check" onClick={() => handleAdvance(open)} disabled={advancingId === open.id || cancellingId === open.id}>
+                <Button full icon="check" ripple onClick={() => handleAdvance(open)} disabled={advancingId === open.id || cancellingId === open.id}>
                   {advancingId === open.id ? "Working…" : NEXT[open.status].verb}
                 </Button>
                 <Button
                   full
                   variant="danger"
                   icon="x"
+                  ripple
                   onClick={() => handleCancel(open)}
                   disabled={advancingId === open.id || cancellingId === open.id}
                 >

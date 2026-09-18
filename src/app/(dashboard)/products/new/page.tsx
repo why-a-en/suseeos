@@ -45,7 +45,7 @@ export default function NewProductPage() {
             <ModifierFieldsList />
           </div>
 
-          <Button full type="submit" icon="check">
+          <Button full type="submit" icon="check" ripple>
             Save product
           </Button>
         </form>

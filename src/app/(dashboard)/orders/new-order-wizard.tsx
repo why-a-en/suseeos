@@ -666,6 +666,7 @@ export function NewOrderWizard({
                 icon="user-plus"
                 label="New customer"
                 variant="solid"
+                ripple
                 onClick={() => {
                   setAddingCustomer(true);
                   // Seed the name from the search, but never over a name
@@ -744,7 +745,7 @@ export function NewOrderWizard({
     if (addingCustomer) onBack = () => setAddingCustomer(false);
     footer = addingCustomer ? (
       <div className="flex gap-2">
-        <Button variant="secondary" icon="arrow-left" onClick={() => setAddingCustomer(false)}>
+        <Button variant="secondary" icon="arrow-left" ripple onClick={() => setAddingCustomer(false)}>
           Back
         </Button>
         <Button
@@ -759,7 +760,7 @@ export function NewOrderWizard({
         </Button>
       </div>
     ) : customer ? (
-      <Button full iconAfter="chevron-right" onClick={() => setStep("items")} className="rounded-full shadow-raised">
+      <Button full iconAfter="chevron-right" ripple onClick={() => setStep("items")} className="rounded-full shadow-raised">
         Continue to items
       </Button>
     ) : null;
@@ -864,6 +865,7 @@ export function NewOrderWizard({
                 icon="plus"
                 label="New product"
                 variant="solid"
+                ripple
                 onClick={() => {
                   setAddingProduct(true);
                   setNewProductName((prev) => prev || productQuery);
@@ -906,7 +908,7 @@ export function NewOrderWizard({
                     <Field label="Quantity" group>
                       <QtyDial value={qty} onChange={setQty} min={1} />
                     </Field>
-                    <Button full icon="notebook-pen" disabled={!allSelected} onClick={commitItem} className="rounded-full shadow-raised">
+                    <Button full icon="notebook-pen" ripple disabled={!allSelected} onClick={commitItem} className="rounded-full shadow-raised">
                       Add item
                     </Button>
                   </div>
@@ -926,7 +928,7 @@ export function NewOrderWizard({
     );
     footer = addingProduct ? (
       <div className="flex gap-2">
-        <Button variant="secondary" icon="arrow-left" onClick={() => setAddingProduct(false)}>
+        <Button variant="secondary" icon="arrow-left" ripple onClick={() => setAddingProduct(false)}>
           Back
         </Button>
         <Button
@@ -968,10 +970,10 @@ export function NewOrderWizard({
           </button>
         ) : null}
         <div className="flex gap-2">
-          <Button variant="secondary" icon="arrow-left" onClick={() => (resume ? leaveWizard("/orders") : jumpToStep("customer"))}>
+          <Button variant="secondary" icon="arrow-left" ripple onClick={() => (resume ? leaveWizard("/orders") : jumpToStep("customer"))}>
             Previous
           </Button>
-          <Button full iconAfter="chevron-right" disabled={!totalItemCount} onClick={() => setStep("review")} className="flex-1 rounded-full shadow-raised">
+          <Button full iconAfter="chevron-right" ripple disabled={!totalItemCount} onClick={() => setStep("review")} className="flex-1 rounded-full shadow-raised">
             Review order
           </Button>
         </div>
@@ -1020,7 +1022,7 @@ export function NewOrderWizard({
     );
     footer = (
       <div className="flex gap-2">
-        <Button variant="secondary" icon="arrow-left" onClick={() => setStep("items")}>
+        <Button variant="secondary" icon="arrow-left" ripple onClick={() => setStep("items")}>
           Previous
         </Button>
         <Button full icon="check" ripple disabled={!totalItemCount || isPending} onClick={() => handleSave(true)} className="flex-1 rounded-full shadow-raised">
@@ -1062,14 +1064,14 @@ export function NewOrderWizard({
           </AlertDialogBody>
           <AlertDialogFooter className="grid gap-2">
             {canSaveDraft ? (
-              <Button full icon="clock" disabled={isPending} onClick={saveDraftAndLeave}>
+              <Button full icon="clock" ripple disabled={isPending} onClick={saveDraftAndLeave}>
                 {resume ? "Save changes" : "Save as draft"}
               </Button>
             ) : null}
-            <Button full variant="danger" onClick={discardAndLeave}>
+            <Button full variant="danger" ripple onClick={discardAndLeave}>
               {resume ? "Leave without saving" : "Discard and leave"}
             </Button>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogCancel ripple>Keep editing</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1088,7 +1090,7 @@ export function NewOrderWizard({
             <Button full variant="danger" ripple disabled={isPending} onClick={handleDeleteDraft}>
               Delete draft
             </Button>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel ripple>Keep it</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

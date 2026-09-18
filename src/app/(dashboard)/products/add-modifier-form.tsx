@@ -53,10 +53,10 @@ export function AddModifierForm({ productId }: { productId: string }) {
       <input type="hidden" name="productId" value={productId} />
       <ModifierFieldsList />
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+        <Button type="button" variant="ghost" ripple onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        <Button type="submit" icon="check">
+        <Button type="submit" icon="check" ripple>
           Create and attach
         </Button>
       </div>
