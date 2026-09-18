@@ -140,6 +140,12 @@
   --color-ring-soft: var(--ring-soft);
   --color-overlay-scrim: var(--overlay-scrim);
 
+  /* toast-only hue exception — see colors.css */
+  --color-toast-success-bg: var(--toast-success-bg);
+  --color-toast-success-ink: var(--toast-success-ink);
+  --color-toast-danger-bg: var(--toast-danger-bg);
+  --color-toast-danger-ink: var(--toast-danger-ink);
+
   /* radius — this app's own scale, not Tailwind's default one */
   --radius-xs: 4px;
   --radius-sm: 9px;
