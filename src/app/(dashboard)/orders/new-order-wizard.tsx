@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { ModifierFieldsList } from "@/components/ui/modifier-fields";
 import { SearchField } from "@/components/ui/search-field";
 import { OptionChips } from "@/components/ui/option-chips";
@@ -286,7 +287,6 @@ export function NewOrderWizard({
   const [newProductName, setNewProductName] = useState("");
   const [newProductDescription, setNewProductDescription] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
-  const [newProductSourceUrl, setNewProductSourceUrl] = useState("");
   // Modifier blocks (as many as /products/new allows) live inside
   // ModifierFieldsList's own uncontrolled inputs, read via this form ref at
   // submit — same division of labour that component already has with the
@@ -444,7 +444,6 @@ export function NewOrderWizard({
         setNewProductName("");
         setNewProductDescription("");
         setNewProductPrice("");
-        setNewProductSourceUrl("");
         // Narrow the list to the new product rather than clearing the
         // query. Cleared, it lands wherever the refreshed catalog sorts it —
         // for anything past the third product that is below the fold, with
@@ -843,15 +842,8 @@ export function NewOrderWizard({
             onChange={(e) => setNewProductPrice(e.target.value)}
           />
         </Field>
-        <Field label="Source URL" hint="Link to the exact Lazada/TikTok Shop listing.">
-          <Input
-            name="sourceUrl"
-            type="url"
-            icon="link"
-            placeholder="https://…"
-            value={newProductSourceUrl}
-            onChange={(e) => setNewProductSourceUrl(e.target.value)}
-          />
+        <Field label="Images">
+          <ImageUploadField />
         </Field>
 
         {/* Same ModifierFieldsList /products/new uses — as many Modifier
@@ -867,10 +859,6 @@ export function NewOrderWizard({
           </div>
           <ModifierFieldsList />
         </div>
-
-        <p className="font-ui text-small text-text-faint">
-          Photos can be added on the product&rsquo;s own page later — not needed to put it on this order.
-        </p>
       </form>
     ) : (
       <div className="grid gap-3">
