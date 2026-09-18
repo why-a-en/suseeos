@@ -27,6 +27,17 @@ import type { MetadataRoute } from "next";
  * Postgres live for orders/inventory, and "works offline" would mean
  * showing stale or wrong stock, which is worse than a clear "you're
  * offline" state. Installable-app tier only.
+ *
+ * Two icon purposes, not one: without an explicit `"maskable"` entry,
+ * Android doesn't trust that an arbitrary square PNG will survive being
+ * cropped to its own mask shape (circle, squircle, teardrop — varies by
+ * launcher) — so it defensively shrinks the *whole* icon and pads it onto a
+ * plain white square instead, which is the mismatched white box some
+ * launchers were showing. The `"any"` pair is the original icon (rounded
+ * corners baked in, content close to the edges — correct for iOS/contexts
+ * that render it unmasked); the `"maskable"` pair is a dedicated full-bleed
+ * version — no baked-in corners, the mark scaled down to sit inside the
+ * ~80%-diameter "safe zone" every mask shape is guaranteed not to clip.
  */
 const isProduction = process.env.VERCEL_ENV === "production";
 const name = isProduction ? "SuSeeOS" : "SuSeeOS (Dev)";
@@ -42,8 +53,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#12110f",
     theme_color: "#12110f",
     icons: [
-      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-192-maskable.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
