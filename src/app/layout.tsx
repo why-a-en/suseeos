@@ -44,6 +44,15 @@ export const metadata: Metadata = {
   // manifest.ts) has no `media` field, and no mainstream browser supports
   // swapping a PWA's home-screen icon by system theme — so that one stays a
   // single fixed (dark) icon regardless of the device's theme.
+  //
+  // apple-icon-*.png are their own full-bleed square artwork, distinct from
+  // manifest.ts's icons — iOS applies its own corner-rounding mask but,
+  // unlike Android's maskable icons, adds no internal breathing room of its
+  // own: an icon whose content runs edge to edge (manifest.ts's `"any"`
+  // pair) reads as visibly cramped next to every other app's icon on the
+  // home screen. These bake the same padding in as the Android maskable
+  // icon does, just without maskable's corner-safe-zone math since iOS's
+  // mask shape is fixed and known ahead of time.
   icons: {
     icon: [
       { url: "/apple-icon-dark.png", media: "(prefers-color-scheme: dark)" },

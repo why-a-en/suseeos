@@ -34,9 +34,10 @@ import type { MetadataRoute } from "next";
  * launcher) — so it defensively shrinks the *whole* icon and pads it onto a
  * plain white square instead, which is the mismatched white box some
  * launchers were showing. The `"any"` pair is the original icon (rounded
- * corners baked in, content close to the edges — correct for iOS/contexts
- * that render it unmasked); the `"maskable"` pair is a dedicated full-bleed
- * version — no baked-in corners, the mark scaled down to sit inside the
+ * corners baked in, content close to the edges — for contexts that render
+ * it unmasked and don't apply their own corner treatment); the `"maskable"`
+ * pair is a dedicated full-bleed version — no baked-in corners, the mark
+ * scaled down to sit inside the
  * ~80%-diameter "safe zone" every mask shape is guaranteed not to clip.
  */
 const isProduction = process.env.VERCEL_ENV === "production";
