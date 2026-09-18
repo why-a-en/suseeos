@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 import { requestNavigation } from "@/lib/navigation-guard";
+import { fireHaptic } from "@/lib/haptics";
 import type { TabItem } from "@/components/ui/tab-bar";
 
 const ISLAND_D = 56;
@@ -16,7 +17,15 @@ const CENTER_GUTTER = 36; // clearance between the two side tabs and the island 
  *  floats above that seam as a solid accent circle, held up by elevation
  *  (position + shadow) alone. No SVG-cut notch under it, and no text label
  *  next to the icon — shape, fill and position already say "Home" once it's
- *  the one round, raised, floating thing in a row of flat tabs. */
+ *  the one round, raised, floating thing in a row of flat tabs.
+ *
+ *  Press feedback + a light haptic, same tokens Button/Toggle use — a tab
+ *  is tapped more than almost anything else in the app, so it's the last
+ *  place to feel dead. The side tabs scale directly; the Home island
+ *  already owns `transform` for its "current tab" grow (1 → 1.06, inline
+ *  style, computed from route state) so its OWN press-scale would fight
+ *  that on the same property — instead the *icon inside it* gets the scale
+ *  via `group-active:`, composing independently of the island's transform. */
 export function CenterTabBar({ left, right, homeHref, className }: { left: TabItem[]; right: TabItem[]; homeHref: string; className?: string }) {
   const pathname = usePathname();
   const homeOn = pathname === homeHref || pathname.startsWith(homeHref + "/");
@@ -28,10 +37,15 @@ export function CenterTabBar({ left, right, homeHref, className }: { left: TabIt
         <Link
           key={it.href}
           href={it.href}
+          onPointerDown={() => fireHaptic("light")}
           onNavigate={(e) => {
             if (requestNavigation(it.href)) e.preventDefault();
           }}
-          className={cn("ds-nav-link relative flex flex-1 flex-col items-center justify-center gap-1", on ? "text-accent-text" : "text-text-faint")}
+          className={cn(
+            "ds-nav-link relative flex flex-1 flex-col items-center justify-center gap-1",
+            "transition-[color,scale] duration-fast ease-spring active:ease-standard active:scale-95",
+            on ? "text-accent-text" : "text-text-faint",
+          )}
         >
           {on ? <span className="absolute inset-x-[28%] top-0 h-0.5 bg-accent" /> : null}
           <span className="relative flex">
@@ -64,10 +78,11 @@ export function CenterTabBar({ left, right, homeHref, className }: { left: TabIt
         aria-label="Home"
         aria-current={homeOn ? "page" : undefined}
         title="Home"
+        onPointerDown={() => fireHaptic("light")}
         onNavigate={(e) => {
           if (requestNavigation(homeHref)) e.preventDefault();
         }}
-        className="ds-nav-link absolute left-1/2 z-[21] flex items-center justify-center rounded-full bg-accent text-accent-ink shadow-raised transition-transform duration-fast ease-standard"
+        className="ds-nav-link group absolute left-1/2 z-[21] flex items-center justify-center rounded-full bg-accent text-accent-ink shadow-raised transition-transform duration-fast ease-standard"
         style={{
           top: -ISLAND_RISE,
           width: ISLAND_D,
@@ -75,7 +90,12 @@ export function CenterTabBar({ left, right, homeHref, className }: { left: TabIt
           transform: `translateX(-50%) scale(${homeOn ? 1.06 : 1})`,
         }}
       >
-        <Icon name="home" size={homeOn ? 25 : 22} strokeWidth={homeOn ? 2.25 : 1.75} />
+        <Icon
+          name="home"
+          size={homeOn ? 25 : 22}
+          strokeWidth={homeOn ? 2.25 : 1.75}
+          className="transition-transform duration-fast ease-spring group-active:ease-standard group-active:scale-90"
+        />
       </Link>
     </div>
   );
