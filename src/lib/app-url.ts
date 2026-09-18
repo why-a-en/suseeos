@@ -24,3 +24,12 @@ export function appBaseURL(): string {
   const host = process.env.VERCEL_BRANCH_URL ?? process.env.VERCEL_URL;
   return host ? `https://${host}` : "http://localhost:3000";
 }
+
+/** True only on the actual Production deployment (main, per CLAUDE.md's git
+ *  workflow) — false for local dev, every Preview deployment, and `dev`
+ *  itself (Vercel has no separate "staging" VERCEL_ENV; dev's own deploys
+ *  are still type "preview", same as a feature branch's). Shared by the
+ *  email templates' dev-environment banner and the PWA's per-env name. */
+export function isProductionDeployment(): boolean {
+  return process.env.VERCEL_ENV === "production";
+}

@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from "react";
 import { brand, FONT_MONO, FONT_SANS } from "./brand";
 import { LOGO_CID } from "./logo";
+import { isProductionDeployment } from "@/lib/app-url";
 
 /**
  * The one wrapper every outbound email goes through: wordmark header, a
@@ -48,6 +49,38 @@ export function EmailLayout({
         }}
       >
         <Container style={{ maxWidth: 480, margin: "0 auto", width: "100%" }}>
+          {/* Every non-Production send carries this — a Preview deployment
+              (dev included; Vercel has no separate "staging" env type) or a
+              bare local `next dev`. Recipients on a real Store shouldn't
+              ever see this; testers poking a Preview URL need the reminder
+              that this isn't the real invitation/reset it looks like. */}
+          {!isProductionDeployment() && (
+            <Section
+              style={{
+                backgroundColor: brand.devBg,
+                border: `1px solid ${brand.devBorder}`,
+                borderRadius: 8,
+                padding: "8px 12px",
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  margin: 0,
+                  fontFamily: FONT_MONO,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  color: brand.devText,
+                }}
+              >
+                TEST EMAIL — sent from{" "}
+                {process.env.VERCEL_GIT_COMMIT_REF ?? "a local dev environment"}, not
+                production.
+              </Text>
+            </Section>
+          )}
+
           {/* wordmark — the real logo (public/logo/logo-lockup-light.svg),
               sent as an inline CID attachment (send.ts) and referenced
               here by Content-ID. See templates/logo.ts for the full why —
