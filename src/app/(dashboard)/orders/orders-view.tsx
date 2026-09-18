@@ -133,7 +133,7 @@ export function OrdersView({
         brand
         title="Orders"
         right={
-          canCreate ? <IconButton icon="plus" label="New order" href="/orders/new" size="icon-sm" /> : null
+          canCreate ? <IconButton icon="plus" label="New order" href="/orders/new" variant="solid" ripple /> : null
         }
       />
       {/* Search and the date trigger share one row — the date control stays
