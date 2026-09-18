@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import { getInstallPrompt, onInstallPromptAvailable, clearInstallPrompt, type BeforeInstallPromptEvent } from "@/lib/install-prompt";
 
 /**
  * One-tap "Install app" for Settings. Android/Chrome/Edge fire
@@ -14,9 +10,15 @@ interface BeforeInstallPromptEvent extends Event {
  * (manifest.ts) — capturing it and calling `.prompt()` from our own button
  * is the one first-party way to trigger the OS install dialog directly,
  * rather than sending someone hunting through the browser's own menu for
- * "Add to Home Screen" or "Install app". `preventDefault()` on the event is
- * what suppresses the browser's own automatic mini-infobar so this button
- * is the only prompt shown.
+ * "Add to Home Screen" or "Install app".
+ *
+ * Reads the event from src/lib/install-prompt.ts rather than listening
+ * itself: Chrome typically fires this once, early — often on the very
+ * first page of the session (`/login`, before anyone's logged in), several
+ * navigations before someone ever reaches Settings — and a listener
+ * attached only when this component mounts simply misses an event that
+ * already fired with nothing else listening. The shared module (captured
+ * from the root layout, on every page) is what actually catches it.
  *
  * iOS Safari never fires this event — Apple restricts triggering "Add to
  * Home Screen" to its own Share sheet, no page-triggered install exists
@@ -38,12 +40,14 @@ export function InstallAppRow() {
     setIsStandalone(window.matchMedia("(display-mode: standalone)").matches);
     setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window));
 
-    function onBeforeInstallPrompt(e: Event) {
-      e.preventDefault();
-      setInstallEvent(e as BeforeInstallPromptEvent);
-    }
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    // Already captured before this page mounted — the common case, since
+    // the root layout starts listening on the first page of the session.
+    const existing = getInstallPrompt();
+    if (existing) setInstallEvent(existing);
+
+    // Still subscribe for the rarer case where Chrome's criteria resolve
+    // while Settings itself is already open.
+    return onInstallPromptAvailable(setInstallEvent);
   }, []);
 
   async function install() {
@@ -56,6 +60,7 @@ export function InstallAppRow() {
     // a dismiss leaves the door open without a dead button behind it.
     if (outcome === "accepted") setInstalled(true);
     setInstallEvent(null);
+    clearInstallPrompt();
   }
 
   if (isStandalone || installed) return null;
