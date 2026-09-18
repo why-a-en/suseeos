@@ -246,7 +246,7 @@ function ManageStaffSheet({
     onClose();
   }
 
-  function run(action: () => Promise<{ error?: string }>) {
+  function run(action: () => Promise<{ error?: string }>, successMessage?: string) {
     startTransition(async () => {
       const result = await action();
       if (result.error) {
@@ -255,6 +255,7 @@ function ManageStaffSheet({
         toast.error(result.error);
         return;
       }
+      if (successMessage) toast.success(successMessage);
       onClose();
     });
   }
@@ -289,7 +290,7 @@ function ManageStaffSheet({
                   options={ROLE_OPTIONS}
                   value={member.role}
                   onChange={(role) =>
-                    run(() => changeStaffRoleAction(member.memberId, role))
+                    run(() => changeStaffRoleAction(member.memberId, role), `${member.name}'s role updated.`)
                   }
                 />
               </Field>
@@ -321,11 +322,13 @@ function ManageStaffSheet({
                   variant="secondary"
                   disabled={pending}
                   onClick={() =>
-                    run(() =>
-                      setStaffStatusAction(
-                        member.memberId,
-                        member.status === "suspended" ? "active" : "suspended",
-                      ),
+                    run(
+                      () =>
+                        setStaffStatusAction(
+                          member.memberId,
+                          member.status === "suspended" ? "active" : "suspended",
+                        ),
+                      member.status === "suspended" ? `${member.name}'s access restored.` : `${member.name}'s access suspended.`,
                     )
                   }
                 >
@@ -339,7 +342,7 @@ function ManageStaffSheet({
                   full
                   variant="danger"
                   disabled={pending}
-                  onClick={() => run(() => removeStaffAction(member.memberId))}
+                  onClick={() => run(() => removeStaffAction(member.memberId), `${member.name} removed from the Store.`)}
                 >
                   Remove from Store
                 </Button>
@@ -382,6 +385,7 @@ function ManageInviteSheet({
         toast.error(result.error);
         return;
       }
+      toast.success(`Invitation to ${invite.email} cancelled.`);
       onClose();
     });
   }

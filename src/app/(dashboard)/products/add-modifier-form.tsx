@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/icon";
 import { ModifierFieldsList } from "@/components/ui/modifier-fields";
@@ -45,8 +46,13 @@ export function AddModifierForm({ productId }: { productId: string }) {
   return (
     <form
       action={async (formData) => {
-        await createModifierAction(formData);
-        setOpen(false);
+        try {
+          await createModifierAction(formData);
+          setOpen(false);
+          toast.success("Modifier added.");
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Couldn't create that modifier.");
+        }
       }}
       className="grid gap-3 rounded-md border border-line-hairline p-3"
     >

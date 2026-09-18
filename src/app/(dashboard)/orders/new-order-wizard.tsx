@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter, unstable_rethrow } from "next/navigation";
+import { toast } from "sonner";
 import { Screen, ScrollBody, Foot, Toolbar } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { Button } from "@/components/ui/button";
@@ -418,6 +419,7 @@ export function NewOrderWizard({
         // customer selected, not the create form again.
         setAddingCustomer(false);
         setStep("items");
+        toast.success(`${created.name} added.`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't create that customer.");
       }
@@ -452,6 +454,7 @@ export function NewOrderWizard({
         setPicking(product);
         setSelections({});
         setQty(1);
+        toast.success(`${created.name} added.`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't create that product.");
       }
@@ -617,6 +620,7 @@ export function NewOrderWizard({
         // this line only runs for a draft save) — the revalidated Orders
         // list already reflects it, just head back there.
         void result;
+        if (!place) toast.success("Draft saved.");
         router.push("/orders");
       } catch (e) {
         // saveOrderAction's redirect() is what lands here on a successful

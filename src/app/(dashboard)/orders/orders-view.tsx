@@ -13,6 +13,7 @@ import { Row } from "@/components/ui/row";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/icon";
 import { dateWindowSentence, type DateWindow } from "@/lib/date-range";
+import { ToastFromQuery } from "@/components/toast-from-query";
 import { loadMoreOrdersAction } from "./actions";
 import type { OrdersCursor, OrdersFilters } from "./query";
 
@@ -129,6 +130,8 @@ export function OrdersView({
 
   return (
     <Screen>
+      <ToastFromQuery param="placed" message="Order placed." />
+      <ToastFromQuery param="draftDeleted" message="Draft deleted." />
       <TopBar
         brand
         title="Orders"

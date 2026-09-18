@@ -100,7 +100,11 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
                   store.id,
                   store.status === "suspended" ? "active" : "suspended",
                 );
-                if (result.error) toast.error(result.error);
+                if (result.error) {
+                  toast.error(result.error);
+                  return;
+                }
+                toast.success(store.status === "suspended" ? `${store.name} restored.` : `${store.name} suspended.`);
               })
             }
           >
@@ -272,6 +276,7 @@ function InviteSheet({
         toast.error(result.error);
         return;
       }
+      toast.success(`Invitation to ${invite.email} cancelled.`);
       onClose();
     });
   }

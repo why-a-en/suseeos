@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Screen, ScrollBody, Toolbar } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { IconButton } from "@/components/ui/icon-button";
@@ -60,6 +61,7 @@ export function CustomersView({ customers }: { customers: CustomerRowData[] }) {
         const created = await createCustomerAction({ name, phone, address });
         setRows((prev) => [...prev, { id: created.id, name: created.name, phone: created.phone, address }].sort((a, b) => a.name.localeCompare(b.name)));
         handleClose();
+        toast.success(`${created.name} added.`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't create that customer.");
       }

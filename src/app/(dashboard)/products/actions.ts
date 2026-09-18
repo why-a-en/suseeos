@@ -151,7 +151,7 @@ export async function createProductAction(formData: FormData) {
   });
 
   revalidatePath("/products");
-  redirect(`/products/${productId}`);
+  redirect(`/products/${productId}?created=1`);
 }
 
 /**
