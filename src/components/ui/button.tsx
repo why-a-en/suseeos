@@ -17,10 +17,20 @@ import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
  *
  *  `haptic` (below) is an additive, opt-in exception to that "no JS" rule —
  *  a vibration is the one thing CSS genuinely can't do. It doesn't touch the
- *  `:active` scale mechanism itself: it only swaps `ease-standard` for the
- *  springier `ease-spring` and deepens the scale a touch, still driven by
- *  `:active`. (A ripple effect briefly lived here too and was pulled — it
- *  read as a stray flash rather than an intentional effect.)
+ *  `:active` scale mechanism itself: it only deepens the scale a touch,
+ *  still driven by `:active`. (A ripple effect briefly lived here too and
+ *  was pulled — it read as a stray flash rather than an intentional effect.)
+ *
+ *  The press-in and release use DIFFERENT easing, deliberately: pressing in
+ *  is `ease-standard` (a plain decelerate, no overshoot) so the button
+ *  visually registers the tap immediately — a spring's overshoot wobbles
+ *  before settling, which reads as hesitation exactly when speed matters
+ *  most. `ease-spring` is reserved for releasing back to rest, where the
+ *  little bounce is what makes it feel physical rather than robotic and
+ *  nobody's waiting on it. This works because a CSS transition's timing
+ *  function is read from the rule for the state being transitioned *to* —
+ *  `active:ease-standard` governs entering `:active`, the plain `ease-spring`
+ *  on the base class governs leaving it.
  *  `"use client"` here is safe — no Server Component call site passes a
  *  non-serializable prop (onClick etc.) to Button today, only `type`,
  *  `icon`/`iconAfter`, and children (all serializable), so this doesn't
@@ -134,7 +144,7 @@ function Button({
       data-variant={variant ?? "primary"}
       type={asChild ? undefined : ((props.type ?? "button") as "button" | "submit" | "reset")}
       onPointerDown={handlePointerDown}
-      className={cn(buttonVariants({ variant, size, full, className }), tactile && "ease-spring active:scale-[0.96]")}
+      className={cn(buttonVariants({ variant, size, full, className }), tactile && "ease-spring active:ease-standard active:scale-[0.96]")}
       {...props}
     >
       {asChild ? (

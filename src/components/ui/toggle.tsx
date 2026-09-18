@@ -15,13 +15,19 @@ import { fireHaptic } from "@/lib/haptics";
  *  pair, because the system is monochrome — selection reads as the heaviest
  *  fill in the row, never as a hue.
  *
- *  `ease-spring` (not `ease-standard`) on the press scale — a flip feels
- *  more like a physical switch with a slight overshoot on release. Already
- *  a Client Component (Radix's Toggle primitive requires it), so a light
- *  haptic buzz on every press is just a pointerdown handler below, no new
- *  prop needed the way Button/Row's opt-in required. */
+ *  `ease-spring` (not `ease-standard`) on the release — a flip feels more
+ *  like a physical switch with a slight overshoot settling back to rest.
+ *  Pressing in stays `ease-standard` (`active:ease-standard` below), same
+ *  reasoning as Button: an overshoot on the way IN wobbles before settling,
+ *  which reads as hesitation right when the tap should register instantly.
+ *  A CSS transition's timing function comes from the rule for the state
+ *  being transitioned *to*, so scoping `ease-standard` to `:active` only
+ *  overrides the entry, not the exit. Already a Client Component (Radix's
+ *  Toggle primitive requires it), so a light haptic buzz on every press is
+ *  just a pointerdown handler below, no new prop needed the way
+ *  Button/Row's opt-in required. */
 const toggleVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm font-ui text-small-strong whitespace-nowrap outline-none transition-[background,color,box-shadow,scale] duration-fast ease-spring active:scale-[0.97] focus-visible:shadow-[var(--focus-ring)] disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm font-ui text-small-strong whitespace-nowrap outline-none transition-[background,color,box-shadow,scale] duration-fast ease-spring active:ease-standard active:scale-[0.97] focus-visible:shadow-[var(--focus-ring)] disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
