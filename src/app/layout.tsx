@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Public_Sans, Martian_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { InstallPromptListener } from "@/components/install-prompt-listener";
+import { ThemeColorSync } from "@/components/theme-color-sync";
 import "./globals.css";
 
 // The design system's two faces (see src/styles/tokens/typography.css):
@@ -71,10 +72,10 @@ export const metadata: Metadata = {
 // server-rendered default; deliberately a single flat string rather than a
 // `media: "(prefers-color-scheme: ...)"` pair, because that media query
 // tracks the *system's* preference, not this app's own explicit light/dark
-// override (localStorage, independent of the OS setting) — the blocking
-// script below and theme-toggle.tsx's apply() both update this tag's
-// content directly instead, so it stays correct for whichever theme the app
-// is actually rendering.
+// override (localStorage, independent of the OS setting) — ThemeColorSync
+// and theme-toggle.tsx's apply() both update this tag's content directly
+// instead, so it stays correct for whichever theme the app is actually
+// rendering.
 export const viewport: Viewport = {
   themeColor: "#12110f",
 };
@@ -90,13 +91,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             has work to do when the viewer previously chose light — applied
             before paint so there's no flash back to dark on load. See
             components/ui/theme-toggle.tsx, which owns writing the choice.
-            Also flips the theme-color meta tag (viewport export above) to
-            the light surface hex, same reason: that tag has to match
-            whichever theme actually renders, not the OS's own preference. */}
+            Deliberately does NOT also touch the theme-color meta tag here —
+            see ThemeColorSync (mounted in <body> below) for why that has to
+            happen after hydration instead. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{var t=localStorage.getItem("theme");if(t==="light"){document.documentElement.setAttribute("data-theme","light");var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute("content","#f2f1ee");}}catch(e){}',
+              'try{var t=localStorage.getItem("theme");if(t==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}',
           }}
         />
         {/* Chrome can fire `beforeinstallprompt` before React ever hydrates —
@@ -134,6 +135,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           real devices' touch scrolling didn't reliably do either. */}
       <body className="h-full flex flex-col overflow-x-hidden">
         <InstallPromptListener />
+        <ThemeColorSync />
         <NuqsAdapter>{children}</NuqsAdapter>
       </body>
     </html>
