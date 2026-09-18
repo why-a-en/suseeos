@@ -2,36 +2,43 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/icon";
+import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { getInstallPrompt, onInstallPromptAvailable, clearInstallPrompt, type BeforeInstallPromptEvent } from "@/lib/install-prompt";
 
 /**
- * One-tap "Install app" for Settings. Android/Chrome/Edge fire
- * `beforeinstallprompt` once the manifest + HTTPS install criteria are met
- * (manifest.ts) — capturing it and calling `.prompt()` from our own button
- * is the one first-party way to trigger the OS install dialog directly,
- * rather than sending someone hunting through the browser's own menu for
- * "Add to Home Screen" or "Install app".
+ * "Install app" for Settings, in three states:
  *
- * Reads the event from src/lib/install-prompt.ts rather than listening
- * itself: Chrome typically fires this once, early — often on the very
- * first page of the session (`/login`, before anyone's logged in), several
- * navigations before someone ever reaches Settings — and a listener
- * attached only when this component mounts simply misses an event that
- * already fired with nothing else listening. The shared module (captured
- * from the root layout, on every page) is what actually catches it.
+ * - **Installed** (`display-mode: standalone`, or just accepted the prompt
+ *   this session): a plain status row, not hidden — someone who already
+ *   installed it should see that reflected here, not wonder whether the
+ *   row disappearing means something went wrong.
+ * - **Android/Chrome/Edge**: fires `beforeinstallprompt` once the manifest +
+ *   HTTPS install criteria are met (manifest.ts). Captured from
+ *   src/lib/install-prompt.ts rather than listened for here — Chrome
+ *   typically fires it once, early, often on `/login` before anyone's
+ *   logged in and several navigations before Settings ever mounts, and a
+ *   listener attached only here would simply miss it. Tapping "Install"
+ *   calls `.prompt()` directly — the one first-party way to trigger the OS
+ *   install dialog, instead of sending someone hunting through the
+ *   browser's own menu.
+ * - **iOS Safari**: never fires that event at all — Apple restricts
+ *   triggering "Add to Home Screen" to its own Share sheet, no
+ *   page-triggered install exists there, full stop. The button still
+ *   shows (tapping it can't silently do nothing), but it opens a sheet
+ *   with the actual steps instead of attempting an install this platform
+ *   will never allow.
  *
- * iOS Safari never fires this event — Apple restricts triggering "Add to
- * Home Screen" to its own Share sheet, no page-triggered install exists
- * there — so this shows a one-line instruction instead of a button that
- * could never do anything. Nothing renders once the app is already running
- * standalone (installed), or on a browser offering neither path (nothing
- * useful to show there).
+ * Nothing renders only when none of the above applies — a browser that's
+ * neither iOS nor has fired the install event yet has nothing useful to
+ * offer here.
  */
 export function InstallAppRow() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [showIOSSheet, setShowIOSSheet] = useState(false);
 
   useEffect(() => {
     // One-time read of real client-only truth after mount, same pattern (and
@@ -55,32 +62,72 @@ export function InstallAppRow() {
     await installEvent.prompt();
     const { outcome } = await installEvent.userChoice;
     // The event is single-use either way — Chrome never fires it again for
-    // the same page load — but only flip to "installed" (hiding the row for
-    // good, past a refresh matchMedia already catches it) on acceptance, so
-    // a dismiss leaves the door open without a dead button behind it.
+    // the same page load — but only flip to "installed" on acceptance, so
+    // a dismiss leaves the door open without a dead button behind it (the
+    // row falls back to matchMedia's answer, still false, on the next
+    // render either way).
     if (outcome === "accepted") setInstalled(true);
     setInstallEvent(null);
     clearInstallPrompt();
   }
 
-  if (isStandalone || installed) return null;
+  if (isStandalone || installed) {
+    return (
+      <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
+        <span>Install app</span>
+        <span className="flex items-center gap-1.5 font-ui text-small text-text-faint">
+          <Icon name="check" size={14} />
+          Installed
+        </span>
+      </div>
+    );
+  }
+
   if (!isIOS && !installEvent) return null;
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
-      <div className="min-w-0">
-        <span className="block">Install app</span>
-        {isIOS ? (
-          <span className="mt-0.5 block font-ui text-small text-text-faint">
-            Tap the Share icon, then &ldquo;Add to Home Screen&rdquo;.
-          </span>
-        ) : null}
-      </div>
-      {!isIOS ? (
-        <Button size="sm" icon="download" onClick={install} className="shrink-0">
+    <>
+      <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
+        <span>Install app</span>
+        <Button size="sm" icon="download" onClick={isIOS ? () => setShowIOSSheet(true) : install} className="shrink-0">
           Install
         </Button>
+      </div>
+
+      {isIOS ? (
+        <Sheet open={showIOSSheet} onOpenChange={setShowIOSSheet}>
+          <SheetContent>
+            <SheetHeader title="Install SuSeeOS" />
+            <SheetBody>
+              <ol className="grid gap-4">
+                <li className="flex items-start gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-sunken font-mono text-small-strong text-text-faint">1</span>
+                  <p className="font-ui text-body text-text-body">
+                    Tap the <Icon name="share" size={15} className="mx-0.5 inline-block align-[-3px]" /> Share icon in Safari&rsquo;s toolbar.
+                  </p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-sunken font-mono text-small-strong text-text-faint">2</span>
+                  <p className="font-ui text-body text-text-body">
+                    Scroll down and tap <strong className="font-semibold text-text-strong">Add to Home Screen</strong>.
+                  </p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-sunken font-mono text-small-strong text-text-faint">3</span>
+                  <p className="font-ui text-body text-text-body">
+                    Tap <strong className="font-semibold text-text-strong">Add</strong> to confirm.
+                  </p>
+                </li>
+              </ol>
+            </SheetBody>
+            <SheetFooter>
+              <Button full onClick={() => setShowIOSSheet(false)}>
+                Got it
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       ) : null}
-    </div>
+    </>
   );
 }
