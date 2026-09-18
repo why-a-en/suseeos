@@ -43,16 +43,25 @@ function parseModifierBlocks(formData: FormData, nameField: string, optionsField
 /**
  * Creates each parsed Modifier block (a new, Organization-wide Modifier and
  * its Options) and attaches every one of those Options to `productId` —
- * the shared insert behind both `createProductAction`'s first-Modifier-or-
- * several case and `createModifierAction`'s "add another" on the product
- * page. Same statement shape either way; only the number of blocks differs.
+ * the shared insert behind `createProductAction`'s N-Modifier case,
+ * `createModifierAction`'s "add another" on the product page, and the
+ * order wizard's inline creation. Same statement shape every time; only
+ * the number of blocks differs.
+ *
+ * Returns each created group in the shape the wizard's picker renders
+ * (id/name/options), so a caller that needs the row back — the wizard,
+ * which drops the new product straight into its list — doesn't have to
+ * re-fetch it. `createProductAction` and `createModifierAction` just
+ * ignore the return.
  */
 async function insertModifierBlocks(
   tx: Db,
   organizationId: string,
   productId: string,
   blocks: { name: string; options: string[] }[],
-) {
+): Promise<{ id: string; name: string; options: { id: string; value: string }[] }[]> {
+  const groups: { id: string; name: string; options: { id: string; value: string }[] }[] = [];
+
   for (const block of blocks) {
     const [modifier] = await tx
       .insert(modifiers)
@@ -69,7 +78,7 @@ async function insertModifierBlocks(
           sortOrder: index,
         })),
       )
-      .returning({ id: modifierOptions.id });
+      .returning({ id: modifierOptions.id, value: modifierOptions.value });
 
     await tx.insert(productModifierOptions).values(
       insertedOptions.map((option) => ({
@@ -78,7 +87,11 @@ async function insertModifierBlocks(
         modifierOptionId: option.id,
       })),
     );
+
+    groups.push({ id: modifier.id, name: block.name, options: insertedOptions });
   }
+
+  return groups;
 }
 
 /**
@@ -217,43 +230,34 @@ export async function updateProductAction(formData: FormData) {
  *
  * Two things make the form action above unusable mid-wizard. It ends in a
  * `redirect` to the new product's page, which would throw away a cart the
- * wizard is holding in client state and never wrote anywhere; and it takes
- * FormData, whereas the wizard needs the created row back so it can drop
- * the product straight into the list and let the agent add it to the order
- * without a round-trip. Same relationship `createCustomerAction` has to the
- * customer sheet — one action, both surfaces.
+ * wizard is holding in client state and never wrote anywhere; and the
+ * wizard needs the created row back so it can drop the product straight
+ * into the list and let the agent add it to the order without a
+ * round-trip. Same relationship `createCustomerAction` has to the customer
+ * sheet — one action, both surfaces.
  *
- * Carries the same optional first Modifier as the full form — someone
- * capturing a product mid-order is recording exactly what the customer
- * asked for, and "the red one" is part of that. Still no images: an upload
- * widget inside a wizard sub-step on a phone is a lot of screen for
- * something nobody is waiting on, and photos are catalog curation for the
- * product's own page. The created Modifier (if any) comes back in the
- * shape the wizard's picker renders, so its options are pickable the
- * instant the product lands.
+ * Takes FormData rather than a typed object so the wizard's form can carry
+ * the same `ModifierFieldsList` the full page uses (as many Modifier
+ * blocks as the agent adds, not just one) and hand it over unparsed — this
+ * reuses `parseModifierBlocks`/`insertModifierBlocks` exactly as
+ * `createProductAction` does. Still no images: an upload widget inside a
+ * wizard sub-step on a phone is a lot of screen for something nobody is
+ * waiting on, and photos are catalog curation for the product's own page.
+ * The created Modifiers come back in the shape the wizard's picker
+ * renders, so their options are pickable the instant the product lands.
  */
-export async function createProductInlineAction(input: {
-  name: string;
-  description: string;
-  price?: string;
-  sourceUrl?: string;
-  modifierName?: string;
-  modifierOptions?: string[];
-}): Promise<{
+export async function createProductInlineAction(formData: FormData): Promise<{
   id: string;
   name: string;
   price: string;
   sourceUrl: string | null;
   modifierGroups: { id: string; name: string; options: { id: string; value: string }[] }[];
 }> {
-  const name = input.name.trim();
-  const description = input.description.trim();
-  const price = input.price?.trim() ?? "";
-  const sourceUrl = input.sourceUrl?.trim() || null;
-  const modifierName = input.modifierName?.trim() ?? "";
-  const modifierOptionValues = (input.modifierOptions ?? [])
-    .map((v) => v.trim())
-    .filter(Boolean);
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const sourceUrl = String(formData.get("sourceUrl") ?? "").trim() || null;
+  const price = String(formData.get("price") ?? "").trim();
+  const modifierBlocks = parseModifierBlocks(formData, "modifierName", "modifierOptions");
 
   if (!name) throw new Error("Name is required.");
   if (!description) throw new Error("Description is required.");
@@ -265,35 +269,7 @@ export async function createProductInlineAction(input: {
       .values({ organizationId, name, description, sourceUrl, price, createdBy: userId })
       .returning({ id: products.id, name: products.name, price: products.price, sourceUrl: products.sourceUrl });
 
-    const modifierGroups: { id: string; name: string; options: { id: string; value: string }[] }[] = [];
-    if (modifierName && modifierOptionValues.length > 0) {
-      const [modifier] = await tx
-        .insert(modifiers)
-        .values({ organizationId, name: modifierName })
-        .returning({ id: modifiers.id });
-
-      const insertedOptions = await tx
-        .insert(modifierOptions)
-        .values(
-          modifierOptionValues.map((value, index) => ({
-            organizationId,
-            modifierId: modifier.id,
-            value,
-            sortOrder: index,
-          })),
-        )
-        .returning({ id: modifierOptions.id, value: modifierOptions.value });
-
-      await tx.insert(productModifierOptions).values(
-        insertedOptions.map((option) => ({
-          organizationId,
-          productId: row.id,
-          modifierOptionId: option.id,
-        })),
-      );
-
-      modifierGroups.push({ id: modifier.id, name: modifierName, options: insertedOptions });
-    }
+    const modifierGroups = await insertModifierBlocks(tx, organizationId, row.id, modifierBlocks);
 
     return { ...row, price: row.price ?? price, modifierGroups };
   });

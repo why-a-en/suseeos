@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter, unstable_rethrow } from "next/navigation";
 import { Screen, ScrollBody, Foot, Toolbar } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { TagInput } from "@/components/ui/tag-input";
 import { Textarea } from "@/components/ui/textarea";
+import { ModifierFieldsList } from "@/components/ui/modifier-fields";
 import { SearchField } from "@/components/ui/search-field";
 import { OptionChips } from "@/components/ui/option-chips";
 import { QtyDial } from "@/components/ui/qty-dial";
@@ -286,11 +286,11 @@ export function NewOrderWizard({
   const [newProductDescription, setNewProductDescription] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductSourceUrl, setNewProductSourceUrl] = useState("");
-  // One optional Modifier, same as /products/new — enough to capture "the
-  // red one in size M" while it's being asked for. A second Modifier is
-  // catalog work for the product's own page.
-  const [newProductModifierName, setNewProductModifierName] = useState("");
-  const [newProductModifierOptions, setNewProductModifierOptions] = useState<string[]>([]);
+  // Modifier blocks (as many as /products/new allows) live inside
+  // ModifierFieldsList's own uncontrolled inputs, read via this form ref at
+  // submit — same division of labour that component already has with the
+  // full form, rather than mirroring its per-block state up here too.
+  const newProductFormRef = useRef<HTMLFormElement>(null);
   // Products created inline during this wizard run. The `products` prop is a
   // server snapshot taken when the route rendered; a product created here
   // has to join the list the Items step is filtering over without a
@@ -430,17 +430,12 @@ export function NewOrderWizard({
    *  picker opens on its options (and "Add item" waits for a choice); if
    *  not, quantity is the only remaining decision and "Add item" is live. */
   function handleCreateProduct() {
+    if (!newProductFormRef.current) return;
+    const formData = new FormData(newProductFormRef.current);
     setError(null);
     startTransition(async () => {
       try {
-        const created = await createProductInlineAction({
-          name: newProductName,
-          description: newProductDescription,
-          price: newProductPrice,
-          sourceUrl: newProductSourceUrl,
-          modifierName: newProductModifierName,
-          modifierOptions: newProductModifierOptions,
-        });
+        const created = await createProductInlineAction(formData);
         const product: WizardProduct = created;
         setExtraProducts((prev) => [product, ...prev]);
         setAddingProduct(false);
@@ -448,8 +443,6 @@ export function NewOrderWizard({
         setNewProductDescription("");
         setNewProductPrice("");
         setNewProductSourceUrl("");
-        setNewProductModifierName("");
-        setNewProductModifierOptions([]);
         // Narrow the list to the new product rather than clearing the
         // query. Cleared, it lands wherever the refreshed catalog sorts it —
         // for anything past the third product that is below the fold, with
@@ -779,15 +772,35 @@ export function NewOrderWizard({
       // Same shape as the Customer step's inline create: the step's body
       // becomes the form and its footer becomes Back / Create, rather than a
       // Sheet stacked over a wizard that already owns the whole screen.
-      <div className="grid gap-4 px-5">
+      //
+      // A real <form> (not a plain div) so ModifierFieldsList's own
+      // uncontrolled inputs can be read back with one `new FormData(...)` at
+      // submit, same as /products/new — see handleCreateProduct. Nothing in
+      // here posts natively: the "Create product" button lives in the
+      // footer, outside this element, and is wired to that ref instead.
+      <form ref={newProductFormRef} onSubmit={(e) => e.preventDefault()} className="grid gap-4 px-5">
         <Field label="Name" required>
-          <Input icon="package" autoComplete="off" placeholder="Denim jacket" value={newProductName} onChange={(e) => setNewProductName(e.target.value)} />
+          <Input
+            name="name"
+            icon="package"
+            autoComplete="off"
+            placeholder="Denim jacket"
+            value={newProductName}
+            onChange={(e) => setNewProductName(e.target.value)}
+          />
         </Field>
         <Field label="Description" required>
-          <Textarea rows={3} placeholder="Colour, fabric, fit — anything the customer should know" value={newProductDescription} onChange={(e) => setNewProductDescription(e.target.value)} />
+          <Textarea
+            name="description"
+            rows={3}
+            placeholder="Colour, fabric, fit — anything the customer should know"
+            value={newProductDescription}
+            onChange={(e) => setNewProductDescription(e.target.value)}
+          />
         </Field>
         <Field label="Price" required>
           <Input
+            name="price"
             type="number"
             inputMode="decimal"
             step="0.01"
@@ -801,6 +814,7 @@ export function NewOrderWizard({
         </Field>
         <Field label="Source URL" hint="Link to the exact Lazada/TikTok Shop listing.">
           <Input
+            name="sourceUrl"
             type="url"
             icon="link"
             placeholder="https://…"
@@ -809,39 +823,24 @@ export function NewOrderWizard({
           />
         </Field>
 
-        {/* One optional Modifier, same layout as /products/new. Filled in,
-            it's created and attached with the product, and the picker that
-            opens next lands straight on its options. */}
-        <div className="grid gap-4 rounded-md border border-line-hairline p-3">
+        {/* Same ModifierFieldsList /products/new uses — as many Modifier
+            blocks as the agent adds, not just one. Filled in, each is
+            created and attached with the product, and the picker that
+            opens next lands straight on the first one's options. */}
+        <div className="grid gap-2">
           <div className="grid gap-1">
-            <span className="font-mono text-label tracking-label uppercase text-text-faint">Modifier (optional)</span>
+            <span className="font-mono text-label tracking-label uppercase text-text-faint">Modifiers (optional)</span>
             <p className="font-ui text-small text-text-faint">
-              One thing that varies, and its choices — you&rsquo;ll pick one for this line next.
+              Things that vary, and the choices for each — you&rsquo;ll pick one per Modifier for this line next.
             </p>
           </div>
-          <Field label="Name" hint="What varies — size, colour, material">
-            <Input
-              icon="tag"
-              autoComplete="off"
-              placeholder="Colour"
-              value={newProductModifierName}
-              onChange={(e) => setNewProductModifierName(e.target.value)}
-            />
-          </Field>
-          <Field label="Options" hint="Press Enter after each">
-            <TagInput
-              icon="list"
-              placeholder="Black, White, Red"
-              value={newProductModifierOptions}
-              onChange={setNewProductModifierOptions}
-            />
-          </Field>
+          <ModifierFieldsList />
         </div>
 
         <p className="font-ui text-small text-text-faint">
-          Photos, and any further modifiers, can be added on the product&rsquo;s own page later — neither is needed to put it on this order.
+          Photos can be added on the product&rsquo;s own page later — not needed to put it on this order.
         </p>
-      </div>
+      </form>
     ) : (
       <div className="grid gap-3">
         {/* Just the catalog. What's already on the order lives in a sheet
