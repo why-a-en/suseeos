@@ -1,4 +1,5 @@
 import { asc, and, eq, gte, lte, inArray } from "drizzle-orm";
+import { requireUser } from "@/lib/auth";
 import { withCurrentOrganization } from "@/lib/tenancy";
 import { orderItems, orders, products, productImages, customers, orderItemModifiers, modifierOptions } from "@/db/schema";
 import { resolveDateWindow } from "@/lib/date-range";
@@ -17,6 +18,13 @@ import { PurchaseQueueView, type PurchaseGroup } from "./purchase-queue-view";
 // pending-queue size for one shop doesn't warrant a server round-trip per
 // keystroke.
 export default async function PurchaseQueuePage({ searchParams }: { searchParams: Promise<{ range?: string; from?: string; to?: string }> }) {
+  // This is a supplier's own tab (see (dashboard)/layout.tsx's NAV_BY_ROLE)
+  // but an admin's Home shortcut instead — same page, different place in the
+  // hierarchy, so the TopBar has to differ: brand for the tab, a back arrow
+  // for the shortcut (CLAUDE.md "Every nested screen has a back button").
+  const user = await requireUser();
+  const isTab = user.role === "supplier";
+
   // Filters on when the Item was ordered, not on the Order header — the
   // queue's unit of work is the Order Item, and an item added to a draft
   // days after its order was started is today's demand, not that day's.
@@ -107,5 +115,5 @@ export default async function PurchaseQueuePage({ searchParams }: { searchParams
     return Array.from(byProduct.values()).map(({ orderIdSet, ...g }) => ({ ...g, orderCount: orderIdSet.size }));
   });
 
-  return <PurchaseQueueView groups={groups} window={dateWindow} />;
+  return <PurchaseQueueView groups={groups} window={dateWindow} isTab={isTab} />;
 }
