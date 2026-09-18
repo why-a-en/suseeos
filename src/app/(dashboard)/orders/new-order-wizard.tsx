@@ -538,17 +538,44 @@ export function NewOrderWizard({
   }
 
   // While there's unsaved work, arm the shared guard (catches the tab bar's
-  // Links) and the browser's own unload prompt (catches refresh / close /
-  // hard navigation, where only the native dialog is possible).
+  // Links), the browser's own unload prompt (catches refresh / close / hard
+  // navigation, where only the native dialog is possible), and the
+  // browser/OS's own "back" (catches a hardware back button, an edge-swipe
+  // gesture, or the browser chrome's own back arrow — none of which go
+  // through a `<Link>` we can intercept; they just fire a bare `popstate`
+  // straight into Next's router, which was silently discarding the wizard
+  // underneath it).
   useEffect(() => {
     if (!dirty) return;
     const onLeave = (destination: string | null) => setLeaveTo(destination ?? "/orders");
     armNavigationGuard(onLeave);
     const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", onBeforeUnload);
+
+    // Standard SPA trick for a `popstate` we can't preventDefault(): push a
+    // second history entry at the *same* URL, so the browser's instant,
+    // uninterruptible "back" lands on that duplicate instead of actually
+    // leaving — same route, wizard stays mounted, nothing visibly changes —
+    // then treat the resulting popstate exactly like any other guarded
+    // navigation. Re-pushed on every pop rather than consumed once, so an
+    // immediate second back-press is caught too. Left un-consumed on
+    // cleanup rather than popped back off: `dirty` can also flip false
+    // while staying on this same page (cart emptied back out, a resumed
+    // draft edited back to its saved state), and calling history.back()
+    // there would navigate the agent off a page they never asked to leave.
+    // The cost is a harmless duplicate entry some later back-press has to
+    // pass through — never lost work, never a surprise navigation.
+    history.pushState(null, "", location.href);
+    const onPopState = () => {
+      history.pushState(null, "", location.href);
+      onLeave(null);
+    };
+    window.addEventListener("popstate", onPopState);
+
     return () => {
       disarmNavigationGuard(onLeave);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
     };
   }, [dirty]);
 
