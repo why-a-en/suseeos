@@ -4,12 +4,16 @@ import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 import { Icon } from "@/components/icon";
 
-/** Success-only in this app (see error-dialog.tsx for failures — a toast is
- *  ambient and easy to miss, which is exactly wrong for an error). Sonner
- *  replaces the old per-view `useState` + manual `setTimeout` auto-dismiss
- *  pair with a real stacking/swipe-to-dismiss/aria-live toast, restyled here
- *  to the app's own raised-card look instead of shadcn's default. Mounted
- *  once in the dashboard shell (see (dashboard)/layout.tsx). */
+/** Sonner replaces the old per-view `useState` + manual `setTimeout`
+ *  auto-dismiss pair with a real stacking/swipe-to-dismiss/aria-live toast.
+ *  Mounted once in the dashboard shell (see (dashboard)/layout.tsx).
+ *
+ *  `toast.error` is a real, established pattern here (see e.g.
+ *  staff-view.tsx, store-detail-view.tsx) for failures light enough not to
+ *  need ErrorDialog's blocking acknowledgment — so success and error get a
+ *  bold, distinct fill (green/red, from the toast-only hue exception in
+ *  colors.css) rather than sharing one neutral card. Every other toast type
+ *  falls back to `default`'s plain raised-card look. */
 function Toaster({ ...props }: ToasterProps) {
   return (
     <Sonner
@@ -21,13 +25,20 @@ function Toaster({ ...props }: ToasterProps) {
       // most of them.
       offset={{ bottom: "76px" }}
       mobileOffset={{ bottom: "76px" }}
-      icons={{ success: <Icon name="check" size={16} color="var(--color-text-strong)" /> }}
+      icons={{
+        success: <Icon name="check" size={16} color="var(--color-toast-success-ink)" />,
+        error: <Icon name="triangle-alert" size={16} color="var(--color-toast-danger-ink)" />,
+      }}
       style={{ "--width": "min(90vw, calc(var(--content-max) - 2 * var(--gutter)))" } as React.CSSProperties}
       toastOptions={{
         unstyled: true,
         classNames: {
-          toast:
-            "flex items-center gap-2.5 rounded-sm border border-line-strong bg-surface-raised px-3.5 py-3 font-ui text-small text-text-body shadow-dialog",
+          // Shared layout only — no colour here, so it can never fight the
+          // per-type background/text/border classes below on specificity.
+          toast: "flex items-center gap-2.5 rounded-sm border px-3.5 py-3 font-ui text-small shadow-dialog",
+          default: "border-line-strong bg-surface-raised text-text-body",
+          success: "border-transparent bg-toast-success-bg text-toast-success-ink",
+          error: "border-transparent bg-toast-danger-bg text-toast-danger-ink",
           title: "flex-1",
         },
       }}

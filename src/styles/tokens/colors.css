@@ -198,3 +198,22 @@
   --shadow-color:    80 10% 30%;
   --shadow-alpha:    0.10;
 }
+
+/* ── Toast-only colour exception ───────────────────────────────────────────
+   Everything above is deliberately hueless — see the note at the top of this
+   file. Toasts are the one carve-out: a success/error toast is ephemeral,
+   glance-and-gone feedback for an action the user just took, not a
+   persistent status a colourblind user or a printed report needs to parse
+   later, so a real green/red reads faster here than density can. Scoped to
+   src/components/ui/sonner.tsx only — status chips, buttons, badges and
+   everything else stay on the hueless ramp above.
+
+   Fixed values rather than theme-branched: at this lightness/chroma both
+   hold >4.5:1 against a near-white ink on either the charcoal or paper page,
+   so there is nothing to re-tune per theme. */
+:root {
+  --toast-success-bg:  oklch(0.627 0.194 149);
+  --toast-success-ink: oklch(0.99 0 0);
+  --toast-danger-bg:   oklch(0.577 0.245 27);
+  --toast-danger-ink:  oklch(0.99 0 0);
+}
