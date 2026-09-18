@@ -43,9 +43,27 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm db:migrate
+      # dev's Neon branch autosuspends on idle (it's staging, low traffic),
+      # and the serverless driver connects over a websocket — three
+      # separate migration runs failed back-to-back on unrelated,
+      # schema-untouched PRs (#51, #53, #55) and every one succeeded on an
+      # immediate re-run with zero code changes, which only fits a
+      # transient connect/wake failure, not a real migration problem.
+      # Retrying in-step means a cold compute doesn't need a human to
+      # notice the red run and manually re-trigger it.
+      - name: pnpm db:migrate (retries a cold/waking Neon compute)
         env:
           # drizzle.config.ts also tries to load .env.local via dotenv;
           # that's a silent no-op when the file doesn't exist (CI), so it
           # doesn't fight with this.
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm db:migrate; then
+              exit 0
+            fi
+            echo "::warning::Migration attempt $attempt/3 failed — retrying in 10s (likely a cold Neon compute, see workflow comment)."
+            sleep 10
+          done
+          echo "::error::Migration failed after 3 attempts."
+          exit 1
