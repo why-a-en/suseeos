@@ -240,11 +240,12 @@ export async function updateProductAction(formData: FormData) {
  * the same `ModifierFieldsList` the full page uses (as many Modifier
  * blocks as the agent adds, not just one) and hand it over unparsed — this
  * reuses `parseModifierBlocks`/`insertModifierBlocks` exactly as
- * `createProductAction` does. Still no images: an upload widget inside a
- * wizard sub-step on a phone is a lot of screen for something nobody is
- * waiting on, and photos are catalog curation for the product's own page.
- * The created Modifiers come back in the shape the wizard's picker
- * renders, so their options are pickable the instant the product lands.
+ * `createProductAction` does. Also carries `imageUrls` the same way, off
+ * the same `ImageUploadField` the full page uses (it uploads straight to
+ * R2 client-side and hands back public URLs as hidden inputs — nothing
+ * here does the uploading). The created Modifiers come back in the shape
+ * the wizard's picker renders, so their options are pickable the instant
+ * the product lands.
  */
 export async function createProductInlineAction(formData: FormData): Promise<{
   id: string;
@@ -257,6 +258,7 @@ export async function createProductInlineAction(formData: FormData): Promise<{
   const description = String(formData.get("description") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim() || null;
   const price = String(formData.get("price") ?? "").trim();
+  const imageUrls = formData.getAll("imageUrls").map(String).filter(Boolean);
   const modifierBlocks = parseModifierBlocks(formData, "modifierName", "modifierOptions");
 
   if (!name) throw new Error("Name is required.");
@@ -268,6 +270,17 @@ export async function createProductInlineAction(formData: FormData): Promise<{
       .insert(products)
       .values({ organizationId, name, description, sourceUrl, price, createdBy: userId })
       .returning({ id: products.id, name: products.name, price: products.price, sourceUrl: products.sourceUrl });
+
+    if (imageUrls.length > 0) {
+      await tx.insert(productImages).values(
+        imageUrls.map((url, index) => ({
+          organizationId,
+          productId: row.id,
+          url,
+          sortOrder: index,
+        })),
+      );
+    }
 
     const modifierGroups = await insertModifierBlocks(tx, organizationId, row.id, modifierBlocks);
 
