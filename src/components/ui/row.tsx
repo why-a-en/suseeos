@@ -1,8 +1,13 @@
-import type { MouseEventHandler, ReactNode } from "react";
+"use client";
+
+import type { MouseEventHandler, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import Link from "next/link";
 
 import { Item } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
+import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
+import { useRipple } from "@/lib/use-ripple";
+import { TactileRipple } from "@/components/ui/tactile-ripple";
 
 /** The shared chrome behind every full-bleed list row (CustomerRow,
  *  ProductRow, OrderItemRow, the Orders log).
@@ -24,18 +29,44 @@ import { cn } from "@/lib/utils";
  *  Pass one of `href` / `onClick`, never both — a row is either a
  *  destination or an action, and nesting a button inside an anchor is
  *  invalid HTML. `href` wins if both arrive, so a stray handler can't
- *  produce that nesting. */
+ *  produce that nesting.
+ *
+ *  `haptic`/`ripple` only apply when the row is interactive (`href` or
+ *  `onClick`) — a read-only row stays exactly as it was. The visual press
+ *  itself is still the fill above, never a scale (same "reads as a glitch"
+ *  reasoning); haptic/ripple are additive on top of it, not a replacement.
+ *  `"use client"` is safe here the same way it is for Button: nothing in
+ *  this file needs a non-serializable prop from a Server Component — the
+ *  handler a `href`/`onClick` row needs already has to come from a Client
+ *  Component today regardless. */
 export function Row({
   href,
   onClick,
+  haptic,
+  ripple = false,
   className,
   children,
 }: {
   href?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  /** Unset defaults to `"light"` whenever the row is interactive (`href` or
+   *  `onClick`); pass `false` to explicitly silence it. */
+  haptic?: HapticIntensity | false;
+  /** Opt-in ripple from the touch/click point. Off by default — apply
+   *  deliberately, not to every row in every list. */
+  ripple?: boolean;
   children?: ReactNode;
   className?: string;
 }) {
+  const interactive = Boolean(href || onClick);
+  const hapticIntensity = haptic ?? (interactive ? "light" : false);
+  const { ripples, onPointerDown: onRipplePointerDown, clearRipple } = useRipple();
+
+  function handlePointerDown(e: ReactPointerEvent<HTMLElement>) {
+    if (hapticIntensity) fireHaptic(hapticIntensity);
+    if (ripple) onRipplePointerDown(e);
+  }
+
   const shell = cn(
     // `min-w-0` is load-bearing on the `onClick` branch. A grid/flex item's
     // automatic minimum size is its min-content size, and a `<button>` won't
@@ -49,16 +80,18 @@ export function Row({
     // A full-bleed row highlights rather than scales — shrinking something
     // pinned to both screen edges reads as a glitch. `active:` is spelled out
     // alongside `hover:` because a touch never produces a hover.
-    (href || onClick) &&
+    interactive &&
       "cursor-pointer hover:bg-surface-hover active:bg-surface-hover focus-visible:bg-surface-hover focus-visible:shadow-[var(--focus-ring)] focus-visible:ring-0",
+    ripple && "relative overflow-hidden",
     className,
   );
 
   if (href) {
     return (
       <Item asChild data-slot="row" className={shell}>
-        <Link href={href} className="ds-nav-link">
+        <Link href={href} className="ds-nav-link" onPointerDown={handlePointerDown}>
           {children}
+          {ripple ? <TactileRipple ripples={ripples} onDone={clearRipple} /> : null}
         </Link>
       </Item>
     );
@@ -67,8 +100,9 @@ export function Row({
   if (onClick) {
     return (
       <Item asChild data-slot="row" className={shell}>
-        <button type="button" onClick={onClick}>
+        <button type="button" onClick={onClick} onPointerDown={handlePointerDown}>
           {children}
+          {ripple ? <TactileRipple ripples={ripples} onDone={clearRipple} /> : null}
         </button>
       </Item>
     );

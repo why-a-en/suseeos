@@ -159,6 +159,7 @@
      system rather than 150ms of Tailwind's own curve. */
   --ease-standard: var(--ease-standard);
   --ease-exit: var(--ease-exit);
+  --ease-spring: var(--ease-spring);
   --default-transition-duration: var(--dur-fast);
   --default-transition-timing-function: var(--ease-standard);
 
@@ -174,6 +175,9 @@
   --animate-sheet-out: ds-sheet-out var(--dur-fast) var(--ease-exit);
   --animate-scrim-in: ds-scrim-in var(--dur-base) var(--ease-standard);
   --animate-scrim-out: ds-scrim-out var(--dur-fast) var(--ease-exit);
+
+  /* The opt-in tactile ripple — see ds-ripple in tokens/motion.css. */
+  --animate-ripple: ds-ripple var(--dur-base) var(--ease-standard);
 
   /* font family */
   --font-display: var(--font-display);

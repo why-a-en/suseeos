@@ -178,7 +178,7 @@ export function StoreDetailView({ store }: { store: StoreDetail }) {
             </AlertDialogDescription>
           </AlertDialogBody>
           <AlertDialogFooter className="grid gap-2">
-            <Button full variant="danger" disabled={pending} onClick={handleDelete}>
+            <Button full variant="danger" ripple disabled={pending} onClick={handleDelete}>
               Delete Store
             </Button>
             <AlertDialogCancel>Keep it</AlertDialogCancel>
