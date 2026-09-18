@@ -69,6 +69,27 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               'try{var t=localStorage.getItem("theme");if(t==="light"){document.documentElement.setAttribute("data-theme","light");var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute("content","#f2f1ee");}}catch(e){}',
           }}
         />
+        {/* Chrome can fire `beforeinstallprompt` before React ever hydrates —
+            a cold load has to download/parse/hydrate the whole bundle first,
+            and on a slow connection that's easily enough time for the event
+            to come and go. A listener added inside a React effect
+            (install-prompt-listener.tsx) attaches too late to call
+            preventDefault() on that firing, so Chrome falls back to its own
+            automatic mini-infobar instead — which is what showed up on
+            /login specifically: the very first page of the session, and
+            the one most likely to still be mid-hydration when Chrome
+            decides the criteria are met. This plain, blocking script runs
+            during HTML parsing, before any JS bundle, so it's already
+            listening by the time the event could possibly fire — same
+            "beat hydration" trick as the theme script above.
+            install-prompt.ts's getInstallPrompt() reads window.__pwaInstall
+            first, falling back to its own React-side capture. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'window.__pwaInstall=null;window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__pwaInstall=e;});',
+          }}
+        />
       </head>
       {/* h-full (a definite height, not just a minimum) matters here: every
           screen's scroll region (Screen/ScrollBody, see

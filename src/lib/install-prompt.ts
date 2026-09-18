@@ -3,23 +3,43 @@ export interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+declare global {
+  interface Window {
+    /** Set by the blocking inline script in layout.tsx's <head> — see its
+     *  own comment for why capture has to start there, before any JS
+     *  bundle, rather than from a React effect. */
+    __pwaInstall?: BeforeInstallPromptEvent | null;
+  }
+}
+
 /**
- * Module-level capture for `beforeinstallprompt`, separate from any one
- * component's lifecycle. Chrome fires this event once, early — typically
- * on the very first page of the session (often `/login`, before anyone's
- * even authenticated) — not on whichever page happens to be mounted when a
- * component gets around to adding its listener. `InstallAppRow` living in
- * Settings, several navigations later, missed it outright: a browser
- * event with no listener attached yet at fire time is just gone, nothing
- * replays it. `initInstallPromptCapture()` is called once from the root
- * layout instead (as early as the app's own JS runs at all, on every
- * page), and this module holds the result for whoever asks later.
+ * Capture for `beforeinstallprompt`, independent of any one component's
+ * lifecycle. Chrome fires this event once, early — often on the very first
+ * page of the session (`/login`, before anyone's even authenticated), and
+ * frequently before React has even hydrated on a cold load. Two capture
+ * paths exist for that reason:
+ *
+ * 1. A plain inline `<script>` in layout.tsx's `<head>`, which runs during
+ *    HTML parsing — before any JS bundle downloads, let alone hydrates —
+ *    and stores the event on `window.__pwaInstall`. This is what actually
+ *    wins the race on a cold load; without it, Chrome shows its own
+ *    automatic mini-infobar instead (that's what appeared on /login), and
+ *    by the time this module or any React component gets a chance to
+ *    listen, the one-shot event is already spent.
+ * 2. `initInstallPromptCapture()`, called from the root layout's
+ *    `InstallPromptListener` — a normal React-side listener, for the
+ *    (typical, on any *later* navigation) case where hydration has long
+ *    since finished by the time Chrome's criteria resolve.
+ *
+ * `getInstallPrompt()` checks both; whichever path won the race, callers
+ * don't need to know which.
  */
 let capturedEvent: BeforeInstallPromptEvent | null = null;
 let initialized = false;
 const listeners = new Set<(e: BeforeInstallPromptEvent) => void>();
 
 export function getInstallPrompt(): BeforeInstallPromptEvent | null {
+  if (typeof window !== "undefined" && window.__pwaInstall) return window.__pwaInstall;
   return capturedEvent;
 }
 
@@ -34,6 +54,7 @@ export function onInstallPromptAvailable(cb: (e: BeforeInstallPromptEvent) => vo
 /** Single-use, same as the event itself — call after `.prompt()` resolves. */
 export function clearInstallPrompt(): void {
   capturedEvent = null;
+  if (typeof window !== "undefined") window.__pwaInstall = null;
 }
 
 export function initInstallPromptCapture(): void {
