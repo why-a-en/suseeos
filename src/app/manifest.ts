@@ -5,8 +5,10 @@ import type { MetadataRoute } from "next";
  * Makes the app installable to a home screen with its own icon and no
  * browser chrome (`display: "standalone"`) — the one piece needed for a
  * one-tap "Add to Home Screen"/install prompt on Android/Chrome; iOS Safari
- * ignores this file for its own icon and reads `apple-icon.png` (see
- * layout.tsx's `appleWebApp` metadata) instead, which is why both exist.
+ * ignores this file for its own icon entirely and reads layout.tsx's
+ * explicit `icons.apple` metadata instead (which is also where the
+ * light/dark icon variants live — this manifest's `icons` array has no
+ * equivalent, single fixed icon only), which is why both exist.
  *
  * `theme_color`/`background_color` are the *dark* surface-page token
  * (oklch(0.178 0.004 75) → #12110f, computed via the standard OKLCH→sRGB
@@ -15,15 +17,25 @@ import type { MetadataRoute } from "next";
  * screen before the app's own CSS has loaded, so it has to match exactly or
  * the transition into the app flashes.
  *
+ * The name carries the environment: `VERCEL_ENV` is "production" only on
+ * main's deploys, "preview" for every dev/PR build, and unset for local
+ * `next dev` — both of the latter get " (Dev)" appended, so installing the
+ * staging build alongside the real app doesn't leave two identical icons
+ * on a tester's home screen with no way to tell which is which.
+ *
  * No offline/service-worker support here on purpose — this app hits
  * Postgres live for orders/inventory, and "works offline" would mean
  * showing stale or wrong stock, which is worse than a clear "you're
  * offline" state. Installable-app tier only.
  */
+const isProduction = process.env.VERCEL_ENV === "production";
+const name = isProduction ? "SuSeeOS" : "SuSeeOS (Dev)";
+const shortName = isProduction ? "SuSeeOS" : "SuSeeOS Dev";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SuSeeOS",
-    short_name: "SuSeeOS",
+    name,
+    short_name: shortName,
     description: "Product catalog and daily order coordination for Support Agents and Suppliers.",
     start_url: "/",
     display: "standalone",
