@@ -34,8 +34,16 @@ The mark files have no text and are safe as `<img>` anywhere.
 ### Rules
 
 - Wordmark is **Public Sans 800**, 18px on the 24px grid, tracked `-0.7`. "OS"
-  always takes the accent; "SuSee" always takes the ink colour. (It was Gloock;
-  the serif was pulled from the system.)
+  always takes `--accent-text`; "SuSee" always takes the ink colour. (It was
+  Gloock; the serif was pulled from the system.) The system went fully
+  monochrome after this rule was written — `--accent-text` is now the same
+  value as ink in both themes (colors.css: "NOTHING in it carries a hue: not
+  the accent...") — so "OS" and "SuSee" render identically today. The lockup
+  SVGs used to hardcode a leftover pre-monochrome red (`#A6203A`) here that
+  colors.css had already moved past; fixed to a flat fill matching ink,
+  same as `components/ui/logo.tsx`'s live wordmark already did. If the
+  system ever reintroduces a hued accent, update `--accent-text` and these
+  two hex fills together — they don't derive from one source.
 - Clear space on all sides = the coin's diameter, 5.7 units on the 24 grid.
 - **Minimum mark size 16px**; minimum lockup width 120px (the lockup's own box is
   120×24 units — it widened from 116 when the wordmark went from "Mini POS" to
