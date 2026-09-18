@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 import { requestNavigation } from "@/lib/navigation-guard";
-import { fireHaptic } from "@/lib/haptics";
 import type { TabItem } from "@/components/ui/tab-bar";
 
 const ISLAND_D = 56;
@@ -19,9 +18,9 @@ const CENTER_GUTTER = 36; // clearance between the two side tabs and the island 
  *  next to the icon — shape, fill and position already say "Home" once it's
  *  the one round, raised, floating thing in a row of flat tabs.
  *
- *  Press feedback + a light haptic, same tokens Button/Toggle use — a tab
- *  is tapped more than almost anything else in the app, so it's the last
- *  place to feel dead. The side tabs scale directly; the Home island
+ *  Press feedback, same tokens Button/Toggle use — a tab is tapped more
+ *  than almost anything else in the app, so it's the last place to feel
+ *  dead. The side tabs scale directly; the Home island
  *  already owns `transform` for its "current tab" grow (1 → 1.06, inline
  *  style, computed from route state) so its OWN press-scale would fight
  *  that on the same property — instead the *icon inside it* gets the scale
@@ -37,7 +36,6 @@ export function CenterTabBar({ left, right, homeHref, className }: { left: TabIt
         <Link
           key={it.href}
           href={it.href}
-          onPointerDown={() => fireHaptic("light")}
           onNavigate={(e) => {
             if (requestNavigation(it.href)) e.preventDefault();
           }}
@@ -78,7 +76,6 @@ export function CenterTabBar({ left, right, homeHref, className }: { left: TabIt
         aria-label="Home"
         aria-current={homeOn ? "page" : undefined}
         title="Home"
-        onPointerDown={() => fireHaptic("light")}
         onNavigate={(e) => {
           if (requestNavigation(homeHref)) e.preventDefault();
         }}

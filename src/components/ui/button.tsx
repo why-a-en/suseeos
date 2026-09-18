@@ -6,7 +6,6 @@ import { Slot } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 import { Icon, type IconName } from "@/components/icon";
-import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
 
 /** The system is monochrome, so press is *felt*, not coloured: primary opens
  *  a soft ring under the cursor (--ring-soft) and widens its own tracking a
@@ -15,11 +14,12 @@ import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
  *  which also makes press register on touch (the mouse-event-only version
  *  this replaces never did).
  *
- *  `haptic` (below) is an additive, opt-in exception to that "no JS" rule —
- *  a vibration is the one thing CSS genuinely can't do. It doesn't touch the
- *  `:active` scale mechanism itself: it only deepens the scale a touch,
- *  still driven by `:active`. (A ripple effect briefly lived here too and
- *  was pulled — it read as a stray flash rather than an intentional effect.)
+ *  Primary/danger — the buttons that make something happen — deepen that
+ *  scale a touch further via `tactile` below. (A vibration and a ripple
+ *  effect both briefly lived here too and were pulled: the vibration read
+ *  as unnecessary buzz nobody asked for, and the ripple read as a stray
+ *  flash rather than an intentional effect. Neither was the actual "feels
+ *  physical" lever — the press/release scale below is.)
  *
  *  The press-in and release use DIFFERENT easing, deliberately: pressing in
  *  is `ease-standard` (a plain decelerate, no overshoot) so the button
@@ -31,10 +31,6 @@ import { fireHaptic, type HapticIntensity } from "@/lib/haptics";
  *  function is read from the rule for the state being transitioned *to* —
  *  `active:ease-standard` governs entering `:active`, the plain `ease-spring`
  *  on the base class governs leaving it.
- *  `"use client"` here is safe — no Server Component call site passes a
- *  non-serializable prop (onClick etc.) to Button today, only `type`,
- *  `icon`/`iconAfter`, and children (all serializable), so this doesn't
- *  break any `<form action={serverAction}><Button type="submit">` usage.
  *
  *  `disabled:pointer-events-none` is load-bearing beyond the cursor: it also
  *  suppresses every hover rule below, so a disabled button can't light up.
@@ -88,18 +84,6 @@ const buttonVariants = cva(
   },
 );
 
-/** Sensible per-variant default for `haptic` when the prop is left
- *  unset — `false` (not `undefined`) always means "explicitly off",
- *  distinct from "unset, use the variant's default". Primary is the button
- *  an agent taps to make something happen; danger is a destructive/confirm
- *  action, so it gets the stronger buzz. Secondary/ghost stay silent unless
- *  a call site opts in — most of those are "Back", "Cancel", low-stakes. */
-function defaultHapticFor(variant: NonNullable<VariantProps<typeof buttonVariants>["variant"]>): HapticIntensity | false {
-  if (variant === "danger") return "strong";
-  if (variant === "primary") return "light";
-  return false;
-}
-
 function Button({
   className,
   variant,
@@ -108,8 +92,6 @@ function Button({
   icon,
   iconAfter,
   asChild = false,
-  haptic,
-  onPointerDown,
   children,
   ...props
 }: React.ComponentProps<"button"> &
@@ -122,28 +104,17 @@ function Button({
     /** Icon rendered before the label. */
     icon?: IconName;
     iconAfter?: IconName;
-    /** `navigator.vibrate` pulse on pointerdown (src/lib/haptics.ts).
-     *  Unset uses the variant's own default (primary "light", danger
-     *  "strong", otherwise off) — pass `false` to explicitly silence it. */
-    haptic?: HapticIntensity | false;
   }) {
   const Comp = asChild ? Slot.Root : "button";
   const iconSize = size === "sm" ? 15 : 17;
   const resolvedVariant = variant ?? "primary";
-  const hapticIntensity = haptic ?? defaultHapticFor(resolvedVariant);
-  const tactile = !asChild && hapticIntensity !== false;
-
-  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
-    if (hapticIntensity) fireHaptic(hapticIntensity);
-    onPointerDown?.(e);
-  }
+  const tactile = !asChild && (resolvedVariant === "primary" || resolvedVariant === "danger");
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant ?? "primary"}
       type={asChild ? undefined : ((props.type ?? "button") as "button" | "submit" | "reset")}
-      onPointerDown={handlePointerDown}
       className={cn(buttonVariants({ variant, size, full, className }), tactile && "ease-spring active:ease-standard active:scale-[0.96]")}
       {...props}
     >
