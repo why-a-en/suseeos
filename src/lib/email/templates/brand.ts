@@ -24,6 +24,15 @@ export const brand = {
   faint: "#63625e", // --text-faint — kicker labels, fine print
 
   inkInvert: "#f9f9f7", // --text-invert / --accent-ink — button label
+
+  // Non-production banner only (layout.tsx) — deliberately NOT from
+  // colors.css. Every other color here mirrors the app's own (monochrome)
+  // palette; this one exists purely so a staging/preview email looks
+  // different from a real one at a glance, the same reasoning that put
+  // color on toasts (colors.css) despite the rest of the system having none.
+  devBg: "#fdf6e0",
+  devBorder: "#e3c766",
+  devText: "#7a5b12",
 } as const;
 
 // System stacks, matching what the app itself uses (no @font-face — a

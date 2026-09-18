@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { render } from "react-email";
-import { appBaseURL } from "@/lib/app-url";
+import { appBaseURL, isProductionDeployment } from "@/lib/app-url";
 import { CredentialsEmail } from "./templates/credentials";
 import { InvitationEmail } from "./templates/invitation";
 import { LOGO_CID, LOGO_LOCKUP_LIGHT_PNG_BASE64 } from "./templates/logo";
@@ -13,6 +13,13 @@ import { LOGO_CID, LOGO_LOCKUP_LIGHT_PNG_BASE64 } from "./templates/logo";
 // renders one and hands the result to Resend.
 
 const FROM = process.env.EMAIL_FROM ?? "SuSeeOS <support@suseeos.com>";
+
+// The layout's own banner (templates/layout.tsx) only shows once the email
+// is open — this catches it one step earlier, in the subject line itself,
+// which is as far as an inbox list or a notification ever shows.
+function subject(text: string): string {
+  return isProductionDeployment() ? text : `[TEST] ${text}`;
+}
 
 let client: Resend | null = null;
 
@@ -74,7 +81,7 @@ export async function sendCredentialsEmail(input: {
   const { error } = await resend().emails.send({
     from: FROM,
     to: [to],
-    subject: "Your SuSeeOS password has been reset",
+    subject: subject("Your SuSeeOS password has been reset"),
     text,
     html,
     attachments: [LOGO_ATTACHMENT],
@@ -110,7 +117,7 @@ export async function sendInvitationEmail(input: {
   const { error } = await resend().emails.send({
     from: FROM,
     to: [to],
-    subject: `Join ${storeName} on SuSeeOS`,
+    subject: subject(`Join ${storeName} on SuSeeOS`),
     text,
     html,
     attachments: [LOGO_ATTACHMENT],
