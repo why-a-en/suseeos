@@ -28,7 +28,21 @@ export function proxy(request: NextRequest) {
   // (docs/adr/0006-transactional-email.md). Gating it here the same way as
   // every other route would bounce them to /login before the page — the one
   // place that actually reads ?token= — ever renders, silently dropping it.
-  const isPublicRoute = pathname.startsWith("/login") || pathname.startsWith("/invite/accept");
+  //
+  // /api/health is the uptime checker's target — it has no session to send,
+  // and a 307-to-/login in place of a real 200/503 would make "the app is
+  // fine" and "the app is down" both look identical from outside.
+  //
+  // /monitoring is next.config.ts's Sentry tunnelRoute — client-side error
+  // reports proxied through this app's own domain (so an ad-blocker
+  // targeting sentry.io doesn't silently eat them) come from a visitor who
+  // may not have a session either, most obviously anyone hitting an error
+  // on /login or /invite/accept itself.
+  const isPublicRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/invite/accept") ||
+    pathname.startsWith("/api/health") ||
+    pathname.startsWith("/monitoring");
 
   if (!hasSessionCookie && !isPublicRoute) {
     const loginUrl = new URL("/login", request.url);
