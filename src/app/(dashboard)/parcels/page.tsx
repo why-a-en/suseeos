@@ -26,9 +26,6 @@ export default async function ParcelsPage({
         status: orderItems.status,
         productName: products.name,
         customerName: customers.name,
-        purchasedAt: orderItems.purchasedAt,
-        receivedAt: orderItems.receivedAt,
-        packedAt: orderItems.packedAt,
       })
       .from(orderItems)
       .innerJoin(products, eq(products.id, orderItems.productId))
@@ -62,7 +59,6 @@ export default async function ParcelsPage({
       ...r,
       status: r.status as ParcelStage,
       selection: selectionsByItem.get(r.id) ?? [],
-      updatedAt: (r.status === "purchased" ? r.purchasedAt : r.status === "received" ? r.receivedAt : r.packedAt) ?? null,
     }));
   });
 

@@ -1,20 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { useQueryState } from "nuqs";
-import { toast } from "sonner";
 import { Screen, Toolbar, ScrollBody } from "@/components/ui/screen";
 import { TopBar } from "@/components/ui/top-bar";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { OrderItemRow } from "@/components/ui/order-item-row";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
-import { Badge, type OrderItemStatus } from "@/components/ui/badge";
+import { type OrderItemStatus } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ErrorDialog } from "@/components/ui/error-dialog";
-import { markReceivedAction, markPackedAction, markCompletedAction } from "./actions";
-import { cancelOrderItemAction } from "../orders/actions";
 
 export type ParcelStage = "purchased" | "received" | "packed";
 
@@ -26,7 +19,6 @@ export interface ParcelItem {
   productName: string;
   customerName: string;
   selection: string[];
-  updatedAt: Date | null;
 }
 
 const SEGMENTS: { value: ParcelStage | "all"; label: string }[] = [
@@ -43,16 +35,13 @@ const HEADING: Record<ParcelStage | "all", string> = {
   packed: "Packed, to send",
 };
 
-const NEXT: Record<ParcelStage, { status: OrderItemStatus; action: (id: string) => Promise<void>; verb: string }> = {
-  purchased: { status: "Received", action: markReceivedAction, verb: "Mark received" },
-  received: { status: "Packed", action: markPackedAction, verb: "Mark packed" },
-  packed: { status: "Completed", action: markCompletedAction, verb: "Mark completed" },
-};
-
 function display(status: ParcelStage): OrderItemStatus {
   return (status.charAt(0).toUpperCase() + status.slice(1)) as OrderItemStatus;
 }
 
+/** The parcel queue. Tapping a row opens /parcels/<id> rather than a Sheet
+ *  over the list — an order row opens a page, so a parcel row does too, and
+ *  the advance/cancel actions live there with it. */
 export function ParcelsView({ items, status: initialStatus }: { items: ParcelItem[]; status: ParcelStage | "all" }) {
   // shallow: false — a segment change needs the Server Component to re-query
   // with the new status filter, not just update the URL client-side.
@@ -63,53 +52,6 @@ export function ParcelsView({ items, status: initialStatus }: { items: ParcelIte
     shallow: false,
   });
   const active = status ?? initialStatus;
-
-  const [open, setOpen] = useState<ParcelItem | null>(null);
-  const [advancingId, setAdvancingId] = useState<string | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  function handleAdvance(item: ParcelItem) {
-    const next = NEXT[item.status];
-    setAdvancingId(item.id);
-    startTransition(async () => {
-      try {
-        await next.action(item.id);
-        setOpen(null);
-        toast.success(`${item.productName} → ${next.status}`);
-      } catch (e) {
-        // Close the item sheet before raising the error: there's nothing
-        // typed in it to lose, and leaving it open would stack two sheets on
-        // the same card surface. The row stays in the list to retry from.
-        setOpen(null);
-        setError(e instanceof Error ? e.message : `Couldn't move ${item.productName} to ${next.status}.`);
-      } finally {
-        setAdvancingId(null);
-      }
-    });
-  }
-
-  // cancelOrderItemAction already exists (src/app/(dashboard)/orders/actions.ts,
-  // used today from the order detail page) and already revalidates both
-  // queues — this just gives it a second, more convenient entry point from
-  // the row a Support Agent is already looking at, rather than
-  // inventing new cancel logic.
-  function handleCancel(item: ParcelItem) {
-    setCancellingId(item.id);
-    startTransition(async () => {
-      try {
-        await cancelOrderItemAction(item.id, item.orderId);
-        setOpen(null);
-        toast.success(`${item.productName} cancelled`);
-      } catch (e) {
-        setOpen(null);
-        setError(e instanceof Error ? e.message : `Couldn't cancel ${item.productName}.`);
-      } finally {
-        setCancellingId(null);
-      }
-    });
-  }
 
   return (
     <Screen>
@@ -128,59 +70,17 @@ export function ParcelsView({ items, status: initialStatus }: { items: ParcelIte
               qty={item.quantity}
               status={display(item.status)}
               customer={item.customerName}
-              onClick={() => setOpen(item)}
+              href={`/parcels/${item.id}`}
             />
           ))
         ) : (
-          <EmptyState icon="box" title="Nothing here." body={active === "received" ? "Nothing has arrived waiting to be packed." : "No items in this stage."} />
+          <EmptyState
+            icon="box"
+            title="Nothing here."
+            body={active === "received" ? "Nothing has arrived waiting to be packed." : "No items in this stage."}
+          />
         )}
       </ScrollBody>
-
-      <Sheet open={!!open} onOpenChange={(next) => !next && setOpen(null)}>
-        <SheetContent>
-          <SheetHeader title={open?.productName} />
-          {open ? (
-            <SheetBody>
-              <div className="grid gap-3">
-                <Badge status={display(open.status)} size="md" />
-                {(
-                  [
-                    ["Customer", open.customerName],
-                    ["Selection", open.selection.length ? open.selection.join(" / ") : "—"],
-                    ["Quantity", "×" + open.quantity],
-                    ["Updated", open.updatedAt ? new Date(open.updatedAt).toLocaleString() : "—"],
-                  ] as const
-                ).map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-3 border-b border-line-hairline pb-3">
-                    <span className="font-mono text-label tracking-label uppercase text-text-faint">{k}</span>
-                    <span className="text-right font-ui text-body text-text-strong">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </SheetBody>
-          ) : null}
-          <SheetFooter>
-            {open ? (
-              <div className="grid gap-2">
-                <Button full icon="check" onClick={() => handleAdvance(open)} disabled={advancingId === open.id || cancellingId === open.id}>
-                  {advancingId === open.id ? "Working…" : NEXT[open.status].verb}
-                </Button>
-                <Button
-                  full
-                  variant="danger"
-                  icon="x"
-                  onClick={() => handleCancel(open)}
-                  disabled={advancingId === open.id || cancellingId === open.id}
-                >
-                  {cancellingId === open.id ? "Cancelling…" : "Cancel item"}
-                </Button>
-              </div>
-            ) : null}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      <ErrorDialog open={!!error} message={error} onOk={() => setError(null)} />
     </Screen>
   );
 }
