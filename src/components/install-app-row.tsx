@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SettingRow } from "@/components/ui/setting-row";
 import { Icon } from "@/components/icon";
 import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { getInstallPrompt, onInstallPromptAvailable, clearInstallPrompt, type BeforeInstallPromptEvent } from "@/lib/install-prompt";
@@ -73,13 +74,12 @@ export function InstallAppRow() {
 
   if (isStandalone || installed) {
     return (
-      <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
-        <span>Install app</span>
+      <SettingRow label="Install app">
         <span className="flex items-center gap-1.5 font-ui text-small text-text-faint">
           <Icon name="check" size={14} />
           Installed
         </span>
-      </div>
+      </SettingRow>
     );
   }
 
@@ -87,12 +87,11 @@ export function InstallAppRow() {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
-        <span>Install app</span>
+      <SettingRow label="Install app" hint="Adds it to your home screen, without browser chrome.">
         <Button size="sm" icon="download" onClick={isIOS ? () => setShowIOSSheet(true) : install} className="shrink-0">
           Install
         </Button>
-      </div>
+      </SettingRow>
 
       {isIOS ? (
         <Sheet open={showIOSSheet} onOpenChange={setShowIOSSheet}>

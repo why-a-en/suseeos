@@ -167,6 +167,35 @@ export function LoadingCards({ count = 4 }: { count?: number }) {
   );
 }
 
+/** Settings' identity card: an avatar and two text lines, then the role
+ *  block set in display type, then the Store line — three bordered bands in
+ *  one card, which is a distinctly different silhouette from the label/value
+ *  rows below it and so has to be its own shape here too. */
+export function LoadingIdentityCard() {
+  return (
+    <div className="px-5 pt-4">
+      <div className="overflow-hidden rounded-md border border-line-hairline bg-surface-card shadow-raised">
+        <div className="flex items-center gap-3.5 px-4 py-4">
+          <Bar className="size-12 shrink-0 rounded-full" />
+          <div className="grid min-w-0 flex-1 gap-2">
+            <Bar className="h-4 w-2/5 rounded-sm" />
+            <Bar className="h-3 w-3/5 rounded-sm" />
+          </div>
+        </div>
+        <div className="grid gap-2.5 border-t border-line-hairline px-4 py-4">
+          <Bar className="h-2.5 w-16 rounded-sm" />
+          <Bar className="h-5 w-1/3 rounded-sm" />
+          <Bar className="h-3 w-full rounded-sm" />
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-line-hairline px-4 py-3.5">
+          <Bar className="h-2.5 w-12 rounded-sm" />
+          <Bar className="h-3.5 w-1/3 rounded-sm" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** A wide single line — Home's greeting, the one piece of display text on
  *  that screen with no row/card shape of its own. */
 export function LoadingHeadline() {
