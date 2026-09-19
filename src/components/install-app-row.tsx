@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SectionHeader } from "@/components/ui/section-header";
+import { SettingRow } from "@/components/ui/setting-row";
 import { Icon } from "@/components/icon";
 import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { getInstallPrompt, onInstallPromptAvailable, clearInstallPrompt, type BeforeInstallPromptEvent } from "@/lib/install-prompt";
@@ -32,6 +34,12 @@ import { getInstallPrompt, onInstallPromptAvailable, clearInstallPrompt, type Be
  * Nothing renders only when none of the above applies — a browser that's
  * neither iOS nor has fired the install event yet has nothing useful to
  * offer here.
+ *
+ * Renders its own "App" SectionHeader rather than letting Settings place
+ * one above it, precisely *because* of that last case: this is the only
+ * thing in that section, so a header owned by the page would be left
+ * hanging over nothing on every desktop browser and every already-installed
+ * non-iOS device. Header and row appear and disappear as one unit.
  */
 export function InstallAppRow() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -73,13 +81,15 @@ export function InstallAppRow() {
 
   if (isStandalone || installed) {
     return (
-      <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
-        <span>Install app</span>
-        <span className="flex items-center gap-1.5 font-ui text-small text-text-faint">
-          <Icon name="check" size={14} />
-          Installed
-        </span>
-      </div>
+      <>
+        <SectionHeader>App</SectionHeader>
+        <SettingRow label="Install app">
+          <span className="flex items-center gap-1.5 font-ui text-small text-text-faint">
+            <Icon name="check" size={14} />
+            Installed
+          </span>
+        </SettingRow>
+      </>
     );
   }
 
@@ -87,12 +97,12 @@ export function InstallAppRow() {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 border-b border-line-hairline px-5 py-3">
-        <span>Install app</span>
+      <SectionHeader>App</SectionHeader>
+      <SettingRow label="Install app">
         <Button size="sm" icon="download" onClick={isIOS ? () => setShowIOSSheet(true) : install} className="shrink-0">
           Install
         </Button>
-      </div>
+      </SettingRow>
 
       {isIOS ? (
         <Sheet open={showIOSSheet} onOpenChange={setShowIOSSheet}>
