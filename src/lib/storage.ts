@@ -9,6 +9,26 @@ const r2 = new S3Client({
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   },
+  // Without this, every presigned upload below is signed with a checksum of
+  // the wrong bytes and R2 rejects the PUT.
+  //
+  // Since v3.729 the AWS SDK defaults to "WHEN_SUPPORTED", which attaches an
+  // integrity checksum to PutObject. For a normal upload the SDK has the body
+  // and computes it correctly — but presigning has no body, so it computes
+  // CRC32 of *nothing* and bakes the result into the URL as a signed query
+  // parameter (`x-amz-checksum-crc32=AAAAAA==`, the empty-input CRC32). The
+  // browser then PUTs the real file, R2 checksums what actually arrived,
+  // finds it doesn't match what the URL promised, and refuses.
+  //
+  // The failure is badly disguised: R2's rejection carries no
+  // Access-Control-Allow-Origin header, so the browser reports a CORS error
+  // rather than the 403 underneath it, which points debugging straight at
+  // the bucket's CORS policy — where there is nothing wrong.
+  //
+  // "WHEN_REQUIRED" keeps checksums for the operations that genuinely
+  // mandate them and drops them here. Verify after changing this: the
+  // presigned URL must contain no `x-amz-checksum-*` query parameter.
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
 const BUCKET = process.env.R2_BUCKET_NAME!;
