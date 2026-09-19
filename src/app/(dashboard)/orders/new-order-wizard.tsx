@@ -399,11 +399,14 @@ export function NewOrderWizard({
 
   // Is there work that would be lost by leaving? A fresh order is dirty once
   // a customer is picked or anything is typed; a resumed draft once its
-  // items differ from what was saved. Never while a save is already in
-  // flight.
+  // items differ from what was saved, or its customer was swapped for a
+  // different one via the Items step's "Previous" (see stepReachable).
+  // Never while a save is already in flight.
   const dirty =
     !isPending &&
-    (resume ? cartSignature(cart) !== initialCartSig : cart.length > 0 || customer !== null);
+    (resume
+      ? cartSignature(cart) !== initialCartSig || customer?.id !== resume.customer.id
+      : cart.length > 0 || customer !== null);
   // A draft still needs a customer to save against.
   const canSaveDraft = customer !== null;
 
@@ -528,9 +531,9 @@ export function NewOrderWizard({
   }
 
   // Every path out of the wizard that isn't "Place order" goes through here:
-  // the top-bar back, the Items step's Previous when resuming, and (via the
-  // guard armed below) the tab bar. If there's unsaved work it opens the
-  // dialog instead of navigating; otherwise it just goes.
+  // the top-bar back and (via the guard armed below) the tab bar. If
+  // there's unsaved work it opens the dialog instead of navigating;
+  // otherwise it just goes.
   function leaveWizard(destination: string) {
     if (dirty) setLeaveTo(destination);
     else router.push(destination);
@@ -622,10 +625,12 @@ export function NewOrderWizard({
   // Which pips the indicator turns into buttons. A completed step is always
   // revisitable; a step ahead unlocks only once its prerequisite exists —
   // Items needs a customer, Review needs a customer and at least one line.
-  // A resumed draft keeps its customer fixed (same rule as the Items step's
-  // "Previous" button), so that pip stays inert.
+  // Customer is reachable even on a resumed draft — the step itself already
+  // shows whichever customer is currently selected and lets a different one
+  // be picked (see the "customer" step's body); saveOrder persists that
+  // change on an existing order the same as it always did for a new one.
   function stepReachable(target: Step): boolean {
-    if (target === "customer") return !resume;
+    if (target === "customer") return true;
     if (target === "items") return customer !== null;
     return customer !== null && totalItemCount > 0;
   }
@@ -985,7 +990,7 @@ export function NewOrderWizard({
           </button>
         ) : null}
         <div className="flex gap-2">
-          <Button variant="secondary" icon="arrow-left" onClick={() => (resume ? leaveWizard("/orders") : jumpToStep("customer"))}>
+          <Button variant="secondary" icon="arrow-left" onClick={() => jumpToStep("customer")}>
             Previous
           </Button>
           <Button full iconAfter="chevron-right" disabled={!totalItemCount} onClick={() => setStep("review")} className="flex-1 rounded-full shadow-raised">
