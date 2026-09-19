@@ -14,11 +14,16 @@ import { cn } from "@/lib/utils";
  * `role="switch"` with `aria-checked`, Space/Enter, and a `<label>`
  * association — none of which a styled `<button>` gets for free.
  *
- * Monochrome, so both states have to read without hue. Rather than the usual
- * grey→colour track (which collapses to grey→grey here), the whole control
- * inverts: off is a light thumb on a dark track, on is a dark thumb on the
- * accent's near-white fill. Same rule the rest of the kit follows — selection
- * is the heaviest fill in the row, never a colour (see toggle.tsx).
+ * Monochrome, so neither state can lean on hue. The track therefore stays
+ * put and only the thumb moves: it's always the accent — the heaviest fill
+ * the theme owns (see toggle.tsx) — on an unchanging sunken track.
+ *
+ * An earlier version inverted the whole control instead (light thumb on a
+ * dark track flipping to a dark thumb on a near-white one), which gave a
+ * much stronger on/off contrast and looked wrong for it: the bright element
+ * swapped from thumb to track mid-travel, so it read as two objects trading
+ * places rather than one sliding. Position and the glyph carry the state
+ * here; the control keeps one identity throughout.
  *
  * `ease-spring` on the thumb's travel, dropping to `ease-standard` while the
  * control is held: an overshoot settling into place reads as a physical
@@ -41,9 +46,8 @@ export function Switch({
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        "group/switch relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full border border-line-hairline p-0.5 outline-none",
-        "bg-surface-raised data-[state=checked]:bg-accent",
-        "transition-[background-color,border-color,scale] duration-fast ease-standard",
+        "group/switch relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full border border-line-hairline bg-surface-sunken p-0.5 outline-none",
+        "transition-[border-color,scale] duration-fast ease-standard",
         // Compact control, so the icon-target press scale (CLAUDE.md §Press).
         "active:scale-95 focus-visible:shadow-[var(--focus-ring)]",
         "disabled:pointer-events-none disabled:opacity-[0.42]",
@@ -53,11 +57,10 @@ export function Switch({
     >
       <SwitchPrimitive.Thumb
         className={cn(
-          "pointer-events-none flex size-[26px] items-center justify-center rounded-full shadow-raised",
-          "bg-surface-invert text-text-invert data-[state=checked]:bg-accent-ink data-[state=checked]:text-accent",
+          "pointer-events-none flex size-[26px] items-center justify-center rounded-full bg-accent text-accent-ink shadow-raised",
           // 56px track − 2px border − 4px padding − 26px thumb = 24px travel.
           "translate-x-0 data-[state=checked]:translate-x-6",
-          "transition-[transform,background-color,color] duration-fast ease-spring group-active/switch:ease-standard",
+          "transition-transform duration-fast ease-spring group-active/switch:ease-standard",
         )}
       >
         {thumbIcon}

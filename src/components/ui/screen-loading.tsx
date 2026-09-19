@@ -130,7 +130,7 @@ export function LoadingShortcutsGrid({ count = 4 }: { count?: number }) {
 export function LoadingSectionHeader() {
   return (
     <div className="px-5 pt-4 pb-2">
-      <Bar className="h-2.5 w-24 rounded-sm" />
+      <Bar className="h-3 w-24 rounded-sm" />
     </div>
   );
 }
