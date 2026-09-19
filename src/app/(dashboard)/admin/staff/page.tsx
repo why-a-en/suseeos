@@ -16,7 +16,16 @@ export default async function StaffPage() {
     <StaffView
       staff={staff}
       currentUserId={user.id}
-      pendingInvitations={pendingInvitations}
+      // Expiry formatted here rather than in the row: the invite rows render
+      // during SSR now that they're in the list itself (they used to only
+      // appear inside a sheet, i.e. client-side), and toLocaleDateString
+      // reads the runtime's locale and timezone. See orders/query.ts.
+      pendingInvitations={pendingInvitations.map((invite) => ({
+        id: invite.id,
+        email: invite.email,
+        role: invite.role,
+        expiresLabel: invite.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+      }))}
     />
   );
 }
