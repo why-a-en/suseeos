@@ -31,7 +31,17 @@ interface Busy {
   kind: "purchase" | "cantSource";
 }
 
-export function PurchaseQueueView({ groups, window: dateWindow }: { groups: PurchaseGroup[]; window: DateWindow }) {
+export function PurchaseQueueView({
+  groups,
+  window: dateWindow,
+  isTab,
+}: {
+  groups: PurchaseGroup[];
+  window: DateWindow;
+  /** True for the Supplier, whose own tab this is; false for an Admin, who
+   *  reaches it as a Home shortcut instead and needs a way back. */
+  isTab: boolean;
+}) {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +86,11 @@ export function PurchaseQueueView({ groups, window: dateWindow }: { groups: Purc
 
   return (
     <Screen>
-      <TopBar brand title="To purchase" eyebrow="supplier" />
+      {isTab ? (
+        <TopBar brand title="To purchase" eyebrow="supplier" />
+      ) : (
+        <TopBar backHref="/home" title="To purchase" eyebrow="supplier" />
+      )}
       <ScrollBody>
         <div className="grid grid-cols-2 gap-2 px-5 pt-2 pb-3">
           <StatTile value={totalUnits} label="units to buy" />
