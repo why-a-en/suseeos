@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useRef, useState } from "react";
 import { getProductImageUploadUrlAction } from "@/app/(dashboard)/products/actions";
 import { useFieldControlId } from "@/components/ui/field";
@@ -124,6 +125,12 @@ export function ImageUploadField({
         // no status to report, so the distinguishing detail is often only
         // in the error itself.
         console.error(`[image-upload] ${file.name} failed`, error);
+        // This runs entirely in the browser (see the module doc comment) —
+        // no server log, of any kind, would otherwise ever see it. This is
+        // the one line standing between "a phone upload silently fails" and
+        // "someone finds out, from an actual error report, before a Store
+        // owner has to say so."
+        Sentry.captureException(error, { extra: { filename: file.name, contentType: file.type } });
         setImages((prev) => prev.map((img) => (img.id === id ? { ...img, status: "error" } : img)));
       }
     }
