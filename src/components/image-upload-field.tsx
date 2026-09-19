@@ -106,9 +106,24 @@ export function ImageUploadField({
           body: file,
           headers: { "Content-Type": file.type },
         });
-        if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+        if (!response.ok) {
+          // R2 answers with an XML <Error><Code>…</Code></Error> naming the
+          // real reason (SignatureDoesNotMatch, BadDigest, AccessDenied…).
+          // Worth reading before throwing: the status alone doesn't
+          // distinguish a bucket-permissions problem from a malformed
+          // signature, and those have completely different fixes.
+          const body = await response.text().catch(() => "");
+          throw new Error(`R2 refused the upload (${response.status}). ${body.slice(0, 300)}`);
+        }
         setImages((prev) => prev.map((img) => (img.id === id ? { ...img, publicUrl, status: "done" } : img)));
-      } catch {
+      } catch (error) {
+        // This used to be a bare `catch {}`, which is how a signed-checksum
+        // mismatch (see lib/storage.ts) spent so long looking like a CORS
+        // problem: every cause collapsed into the same silent red tile with
+        // nothing written down anywhere. A rejected cross-origin fetch has
+        // no status to report, so the distinguishing detail is often only
+        // in the error itself.
+        console.error(`[image-upload] ${file.name} failed`, error);
         setImages((prev) => prev.map((img) => (img.id === id ? { ...img, status: "error" } : img)));
       }
     }
